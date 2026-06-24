@@ -1,0 +1,10 @@
+# Swift Package Manager build products
+.build/
+*.xcodeproj
+.swiftpm/
+
+# Generated/throwaway spike artifacts (reproducible by running SpikeCLI)
+conformance/fixtures/spike-sample.pdf
+
+# macOS
+.DS_Store
