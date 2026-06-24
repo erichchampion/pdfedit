@@ -1,27 +1,42 @@
 // swift-tools-version: 6.0
 //
-// THROWAWAY TOOLCHAIN SPIKE — Verification §E.2.
+// pdfedit — an independent, edit-focused PDF library for iOS 26+ / macOS 26.
 //
-// This Package.swift defines a single minimal executable target used only to prove
-// the Swift toolchain + Apple-framework read path end-to-end on macOS (generate a
-// PDF, parse it, rasterize a page, extract its text). It deliberately does NOT
-// scaffold the 17 planned spec-driven modules. It is built solely from public
-// knowledge of ISO 32000 and Apple framework documentation (Core Graphics, PDFKit,
-// Image I/O, Core Text). It will be deleted/replaced by the real spec-driven modules.
+// Built strictly from the clean-room spec under `spec/` (ISO 32000, public standards,
+// Apple framework docs). NO MuPDF source is read or referenced. Per spec Chapter 20
+// §20.13, the core (PDFCore/PDFFilters/PDFWriter) does NOT depend on CGPDF/PDFKit —
+// Apple's PDF stack is used only as an optional interop boundary and as conformance
+// test oracles (spec Chapter 21).
 //
-// CLEAN-ROOM: no MuPDF source was read or referenced to produce this spike.
+// Foundation milestone targets: PDFFilters (leaf) → PDFCore → PDFWriter.
 
 import PackageDescription
 
 let package = Package(
-    name: "pdfedit-spike",
+    name: "PDFEdit",
     platforms: [
-        .macOS(.v13)
+        .iOS("26.0"),
+        .macOS("26.0"),
+    ],
+    products: [
+        .library(name: "PDFFilters", targets: ["PDFFilters"]),
+        // PDFCore / PDFWriter products are added as those targets land.
     ],
     targets: [
-        .executableTarget(
-            name: "SpikeCLI",
-            path: "Sources/SpikeCLI"
-        )
+        // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
+        // Links the OS-provided libz; no vendored zlib source.
+        .systemLibrary(name: "CZlib", path: "Sources/CZlib"),
+
+        .target(
+            name: "PDFFilters",
+            dependencies: ["CZlib"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
+        .testTarget(
+            name: "PDFFiltersTests",
+            dependencies: ["PDFFilters"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
     ]
 )
