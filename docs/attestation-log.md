@@ -108,7 +108,40 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or copyrightable expression; garbage collection and optimization stated as observable goals only, never as an algorithm or ordering." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
+### Chapter 08 — Content Streams (operators, graphics state, interpretation)
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no interpreter dispatch table or operator-dispatch code; interpreter stated as observable contract)
+- Gatekeeper sign-off: PROMOTED — `spec/08-content-streams.md` (+ citations)
+- Counsel spot-check: N/A (operators standard-defined)
+- Source citations: ISO 32000-1/-2 §7.8.2–7.8.3, §8.2–8.5 (graphics state/path/painting), §8.6.8, §8.8–8.10, §9.3–9.4 (text model), §14.6, §14.11.2
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; the interpreter is stated as an observable contract with dispatch mechanism left open." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 09 — Content-Stream Generation (operator emitter)
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no emitter code or numeric-printing algorithm; only observable output contracts)
+- Gatekeeper sign-off: PROMOTED — `spec/09-content-stream-generation.md` (+ citations)
+- Counsel spot-check: N/A
+- Source citations: ISO 32000-1/-2 §7.2.2–7.2.4, §7.3.3–7.3.7, §7.8.2–7.8.3, §8.2, §8.4–8.5, §8.8–8.10, §9.3–9.4, §12.5.5, §12.7, §14.6.2, Annex C
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; emission stated as observable output contracts (lexically valid, balanced q/Q & BT/ET, round-trips to intended ops)." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 10 — Colour Spaces, Functions, and Shadings
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no Type-4 PostScript-calculator interpreter, no function-evaluator/tint-transform code, no shading rasterizer)
+- Gatekeeper sign-off: PROMOTED — `spec/10-color.md` (+ citations)
+- Counsel spot-check: N/A
+- Source citations: ISO 32000-1/-2 §7.10.1–7.10.5 (functions), §8.6.3–8.6.8 (colour spaces), §8.7.3–8.7.4 (patterns/shadings), §7.8.3; external by name: ICC profile format, CIE colorimetry
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; each function/shading type stated as parameters + input→output contract only." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
 <!-- Ch 04 (recovery) remains UNPROMOTED — blocked pending human counsel spot-check (gate 5). -->
-<!-- Review fixes applied on the restricted side before promotion: Ch02 §2.8 object-type
-     enumeration count, two clause re-anchorings (Ch02 §2.3.3, Ch03 §3.9.1). Cluster C1 (05/07/19)
-     required no fixes. -->
+<!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
+     §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo (k/K pairing). Clusters C1 (05/07/19)
+     and the rest of C2 (08/09) required no fixes. -->
