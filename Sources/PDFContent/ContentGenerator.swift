@@ -46,6 +46,17 @@ public struct ContentGenerator: Sendable {
     public mutating func setFillRGB(_ c: RGB) { line([num(c.r), num(c.g), num(c.b)], "rg") }
     public mutating func setStrokeRGB(_ c: RGB) { line([num(c.r), num(c.g), num(c.b)], "RG") }
     public mutating func setFillGray(_ g: Double) { line([num(g)], "g") }
+    public mutating func setStrokeGray(_ g: Double) { line([num(g)], "G") }
+    public mutating func setFillCMYK(_ c: Double, _ m: Double, _ y: Double, _ k: Double) {
+        line([num(c), num(m), num(y), num(k)], "k")
+    }
+    public mutating func setStrokeCMYK(_ c: Double, _ m: Double, _ y: Double, _ k: Double) {
+        line([num(c), num(m), num(y), num(k)], "K")
+    }
+
+    // MARK: - XObjects & graphics state (§9.6, §8.4.5)
+    public mutating func invokeXObject(_ name: PDFName) { line([PDFTokenFormat.name(name)], "Do") }
+    public mutating func setExtGState(_ name: PDFName) { line([PDFTokenFormat.name(name)], "gs") }
 
     // MARK: - text
     public mutating func beginText() { line([], "BT"); textDepth += 1 }

@@ -41,6 +41,26 @@ public struct PDFString: Sendable, Hashable {
     public var bytes: [UInt8]
     public init(bytes: [UInt8]) { self.bytes = bytes }
     public init(_ string: String) { self.bytes = Array(string.utf8) }
+
+    /// A PDF *text string* (spec §7.9.2): UTF-16BE with a leading byte-order mark, which represents
+    /// any Unicode text losslessly (used for annotation/field text).
+    public init(text: String) {
+        var out: [UInt8] = [0xFE, 0xFF]
+        for unit in text.utf16 { out.append(UInt8(unit >> 8)); out.append(UInt8(unit & 0xFF)) }
+        bytes = out
+    }
+
+    /// Decode this string as PDF text (§7.9.2): UTF-16BE if it has a BOM, else PDFDocEncoding
+    /// (approximated as Latin-1 for the byte range, which is exact for ASCII).
+    public var asText: String {
+        if bytes.count >= 2, bytes[0] == 0xFE, bytes[1] == 0xFF {
+            var units: [UInt16] = []
+            var i = 2
+            while i + 1 < bytes.count { units.append((UInt16(bytes[i]) << 8) | UInt16(bytes[i + 1])); i += 2 }
+            return String(decoding: units, as: UTF16.self)
+        }
+        return String(String.UnicodeScalarView(bytes.map { Unicode.Scalar($0) }))
+    }
 }
 
 /// An indirect-object identity: (object number, generation number) (spec §2.4.1).

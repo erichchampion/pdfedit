@@ -57,4 +57,16 @@ extension PDFObject {
         if case let .reference(r) = self { return r }
         return nil
     }
+
+    /// Every indirect reference contained anywhere within this object (arrays, dictionaries, and a
+    /// stream's dictionary). Pure; used for graph reachability and deep-copy (spec §2.5).
+    public var directReferences: [PDFRef] {
+        switch self {
+        case let .reference(r): return [r]
+        case let .array(a): return a.flatMap(\.directReferences)
+        case let .dictionary(d): return d.keys.flatMap { d[$0]!.directReferences }
+        case let .stream(s): return s.dictionary.keys.flatMap { s.dictionary[$0]!.directReferences }
+        default: return []
+        }
+    }
 }

@@ -155,21 +155,9 @@ public enum PDFWriter {
 
     // MARK: - graph helpers
 
-    /// All indirect references directly contained in an object (one level).
-    static func references(in object: PDFObject) -> [PDFRef] {
-        switch object {
-        case let .reference(r):
-            return [r]
-        case let .array(a):
-            return a.flatMap(references(in:))
-        case let .dictionary(d):
-            return d.keys.flatMap { references(in: d[$0]!) }
-        case let .stream(s):
-            return s.dictionary.keys.flatMap { references(in: s.dictionary[$0]!) }
-        default:
-            return []
-        }
-    }
+    /// All indirect references contained in an object (shared with the deep-copy importer via the
+    /// pure `PDFObject.directReferences` accessor).
+    static func references(in object: PDFObject) -> [PDFRef] { object.directReferences }
 
     /// Rewrite an object's references through `remap` (renumbered objects are all generation 0).
     static func rewrite(_ object: PDFObject, _ remap: [Int: Int]) -> PDFObject {

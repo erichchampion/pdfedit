@@ -45,6 +45,35 @@ extension PDFObjectStore {
         return nil
     }
 
+    /// The indirect reference of the Nth page leaf (spec §7.7.3). Editors need the slot ref (not just
+    /// the dictionary) to write back `/Annots`, `/Rotate`, boxes, etc.
+    public func pageReference(at index: Int) -> PDFRef? {
+        guard let catalog = catalog(), let pagesRef = catalog[PDFName("Pages")]?.referenceValue else { return nil }
+        var counter = 0
+        var visited = Set<Int>()
+        return findPageRef(pagesRef, target: index, counter: &counter, visited: &visited, depth: 0)
+    }
+
+    private func findPageRef(_ nodeRef: PDFRef, target: Int, counter: inout Int, visited: inout Set<Int>, depth: Int) -> PDFRef? {
+        guard depth < 64, !visited.contains(nodeRef.number) else { return nil }
+        visited.insert(nodeRef.number)
+        guard let node = resolve(nodeRef).dictionaryValue else { return nil }
+        let type = node[PDFName("Type")]?.nameValue?.string
+        let kids = dereference(node[PDFName("Kids")] ?? .null).arrayValue
+        if type == "Page" || kids == nil {
+            if counter == target { return nodeRef }
+            counter += 1
+            return nil
+        }
+        for kid in kids ?? [] {
+            guard let kidRef = kid.referenceValue else { continue }
+            if let found = findPageRef(kidRef, target: target, counter: &counter, visited: &visited, depth: depth + 1) {
+                return found
+            }
+        }
+        return nil
+    }
+
     /// Resolve a page's effective inheritable attributes by walking the /Parent chain (§7.7.3.3).
     public func effectivePageAttributes(_ page: PDFDictionary) -> ResolvedPageAttributes {
         func inherited(_ key: PDFName) -> PDFObject? {
