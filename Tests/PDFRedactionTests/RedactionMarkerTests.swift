@@ -4,32 +4,14 @@
 import Testing
 import PDFCore
 import PDFColor
+import PDFTestSupport
 import PDFAnnotations
 @testable import PDFRedaction
 
-/// A one-page store whose single content stream paints the literal bytes "SECRET".
+/// A one-page store whose single content stream paints "SECRET" with /F1 — but provides NO font
+/// resource, so the font is unresolvable (used by the fail-closed tests too).
 func secretPageStore() async -> PDFObjectStore {
-    let store = PDFObjectStore()
-    let catalog = await store.allocate(), pages = await store.allocate()
-    let page = await store.allocate(), content = await store.allocate()
-    let bytes = Array("BT /F1 12 Tf 100 700 Td (SECRET) Tj ET".utf8)
-    await store.define(content, .stream(PDFStream(
-        dictionary: PDFDictionary([PDFName("Length"): .integer(Int64(bytes.count))]), rawData: bytes)))
-    await store.define(page, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Page"))), (PDFName("Parent"), .reference(pages)),
-        (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(612), .integer(792)])),
-        (PDFName("Contents"), .reference(content)),
-    ])))
-    await store.define(pages, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Pages"))),
-        (PDFName("Kids"), .array([.reference(page)])), (PDFName("Count"), .integer(1)),
-    ])))
-    await store.define(catalog, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Catalog"))), (PDFName("Pages"), .reference(pages)),
-    ])))
-    var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
-    await store.setTrailer(trailer)
-    return store
+    await onePageStore(content: "BT /F1 12 Tf 100 700 Td (SECRET) Tj ET")
 }
 
 @Test func markingAddsRedactAnnotationAndRemovesNothing() async throws {

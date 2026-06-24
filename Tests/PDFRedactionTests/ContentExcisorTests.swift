@@ -4,41 +4,12 @@
 
 import Testing
 import PDFCore
+import PDFTestSupport
 @testable import PDFRedaction
 
 /// A one-page store with a WinAnsi font /F1 (width 500 over codes 32…126) and the given content.
 private func storeWithContent(_ text: String) async -> PDFObjectStore {
-    let store = PDFObjectStore()
-    let catalog = await store.allocate(), pages = await store.allocate()
-    let page = await store.allocate(), content = await store.allocate()
-    let font = await store.add(.dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Font"))), (PDFName("Subtype"), .name(PDFName("Type1"))),
-        (PDFName("BaseFont"), .name(PDFName("Helvetica"))),
-        (PDFName("Encoding"), .name(PDFName("WinAnsiEncoding"))),
-        (PDFName("FirstChar"), .integer(32)),
-        (PDFName("Widths"), .array((32...126).map { _ in .integer(500) })),
-    ])))
-    let bytes = Array(text.utf8)
-    await store.define(content, .stream(PDFStream(
-        dictionary: PDFDictionary([PDFName("Length"): .integer(Int64(bytes.count))]), rawData: bytes)))
-    await store.define(page, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Page"))), (PDFName("Parent"), .reference(pages)),
-        (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(612), .integer(792)])),
-        (PDFName("Resources"), .dictionary(PDFDictionary(pairs: [
-            (PDFName("Font"), .dictionary(PDFDictionary(pairs: [(PDFName("F1"), .reference(font))]))),
-        ]))),
-        (PDFName("Contents"), .reference(content)),
-    ])))
-    await store.define(pages, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Pages"))),
-        (PDFName("Kids"), .array([.reference(page)])), (PDFName("Count"), .integer(1)),
-    ])))
-    await store.define(catalog, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Catalog"))), (PDFName("Pages"), .reference(pages)),
-    ])))
-    var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
-    await store.setTrailer(trailer)
-    return store
+    await onePageStore(content: text, withFont: true)
 }
 
 private func currentContent(_ store: PDFObjectStore) async throws -> [UInt8] {

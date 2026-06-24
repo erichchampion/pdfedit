@@ -40,6 +40,13 @@ let package = Package(
         // Links the OS-provided libz; no vendored zlib source.
         .systemLibrary(name: "CZlib", path: "Sources/CZlib"),
 
+        // Shared test fixtures (not a shipped product).
+        .target(
+            name: "PDFTestSupport",
+            dependencies: ["PDFCore"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+
         .target(
             name: "PDFFilters",
             dependencies: ["CZlib"],
@@ -172,7 +179,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PDFRenderTests",
-            dependencies: ["PDFRender", "PDFCore", "PDFWriter"],
+            dependencies: ["PDFRender", "PDFCore", "PDFWriter", "PDFTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
@@ -182,7 +189,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PDFAnnotationsTests",
-            dependencies: ["PDFAnnotations", "PDFCore", "PDFContent", "PDFColor"],
+            dependencies: ["PDFAnnotations", "PDFCore", "PDFContent", "PDFColor", "PDFTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
@@ -193,7 +200,7 @@ let package = Package(
         .testTarget(
             name: "PDFRedactionTests",
             dependencies: ["PDFRedaction", "PDFCore", "PDFContent", "PDFFonts", "PDFColor",
-                           "PDFImages", "PDFAnnotations", "PDFWriter", "PDFRender", "PDFText"],
+                           "PDFImages", "PDFAnnotations", "PDFWriter", "PDFRender", "PDFText", "PDFTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

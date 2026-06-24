@@ -5,26 +5,8 @@ import Testing
 import PDFCore
 import PDFColor
 import PDFContent
+import PDFTestSupport
 @testable import PDFAnnotations
-
-private func onePageStore() async -> PDFObjectStore {
-    let store = PDFObjectStore()
-    let catalog = await store.allocate(), pages = await store.allocate(), page = await store.allocate()
-    await store.define(page, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Page"))), (PDFName("Parent"), .reference(pages)),
-        (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(612), .integer(792)])),
-    ])))
-    await store.define(pages, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Pages"))),
-        (PDFName("Kids"), .array([.reference(page)])), (PDFName("Count"), .integer(1)),
-    ])))
-    await store.define(catalog, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Catalog"))), (PDFName("Pages"), .reference(pages)),
-    ])))
-    var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
-    await store.setTrailer(trailer)
-    return store
-}
 
 /// Interpret an annotation's /AP /N appearance content → display items.
 private func appearanceItems(_ annotRef: PDFRef, _ store: PDFObjectStore) async throws -> [DisplayItem] {

@@ -2,38 +2,8 @@
 
 import Testing
 import PDFCore
+import PDFTestSupport
 @testable import PDFRender
-
-/// A one-page store with the given content stream, MediaBox, and optional /Rotate.
-private func onePageStore(content: String, width: Int = 612, height: Int = 792, rotate: Int? = nil) async -> PDFObjectStore {
-    let store = PDFObjectStore()
-    let catalog = await store.allocate()
-    let pages = await store.allocate()
-    let page = await store.allocate()
-    let contentRef = await store.add(.stream(PDFStream(
-        dictionary: PDFDictionary([PDFName("Length"): .integer(Int64(content.utf8.count))]),
-        rawData: Array(content.utf8))))
-    var pageDict: [(PDFName, PDFObject)] = [
-        (PDFName("Type"), .name(PDFName("Page"))),
-        (PDFName("Parent"), .reference(pages)),
-        (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(Int64(width)), .integer(Int64(height))])),
-        (PDFName("Contents"), .reference(contentRef)),
-    ]
-    if let rotate { pageDict.append((PDFName("Rotate"), .integer(Int64(rotate)))) }
-    await store.define(page, .dictionary(PDFDictionary(pairs: pageDict)))
-    await store.define(pages, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Pages"))),
-        (PDFName("Kids"), .array([.reference(page)])),
-        (PDFName("Count"), .integer(1)),
-    ])))
-    await store.define(catalog, .dictionary(PDFDictionary(pairs: [
-        (PDFName("Type"), .name(PDFName("Catalog"))),
-        (PDFName("Pages"), .reference(pages)),
-    ])))
-    var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
-    await store.setTrailer(trailer)
-    return store
-}
 
 #if canImport(CoreGraphics)
 
