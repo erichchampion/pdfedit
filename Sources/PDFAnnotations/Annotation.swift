@@ -21,12 +21,12 @@ public enum AnnotationColor: Sendable, Equatable {
         }
     }
 
-    /// The device-RGB equivalent (DeviceGray/DeviceCMYK converted per §10.x).
+    /// The device-RGB equivalent (DeviceGray/DeviceCMYK converted via the colour-space code, §10.x).
     public var rgb: RGB {
         switch self {
         case let .gray(g): return RGB(g, g, g)
         case let .rgb(c): return c
-        case let .cmyk(c, m, y, k): return RGB((1 - c) * (1 - k), (1 - m) * (1 - k), (1 - y) * (1 - k))
+        case let .cmyk(c, m, y, k): return PDFColorSpace.deviceCMYK.toRGB([c, m, y, k])
         }
     }
 }
