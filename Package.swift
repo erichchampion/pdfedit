@@ -33,6 +33,7 @@ let package = Package(
         .library(name: "PDFForms", targets: ["PDFForms"]),
         .library(name: "PDFRedaction", targets: ["PDFRedaction"]),
         .library(name: "PDFKitBridge", targets: ["PDFKitBridge"]),
+        .library(name: "PDFEdit", targets: ["PDFEdit"]),
     ],
     targets: [
         // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
@@ -112,6 +113,15 @@ let package = Package(
             dependencies: ["PDFCore", "PDFWriter", "PDFImages", "PDFRender"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // The public umbrella API (spec Ch 20): Document/Page facades over all modules. Apple-free
+        // (does NOT depend on PDFKitBridge, §20.13).
+        .target(
+            name: "PDFEdit",
+            dependencies: ["PDFCore", "PDFWriter", "PDFPages", "PDFAnnotations", "PDFForms",
+                           "PDFRedaction", "PDFText", "PDFContent", "PDFRender", "PDFColor",
+                           "PDFFonts", "PDFImages", "PDFFilters"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
 
         .testTarget(
             name: "PDFFiltersTests",
@@ -189,6 +199,11 @@ let package = Package(
         .testTarget(
             name: "PDFKitBridgeTests",
             dependencies: ["PDFKitBridge", "PDFCore", "PDFImages", "PDFRender"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "PDFEditTests",
+            dependencies: ["PDFEdit"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
