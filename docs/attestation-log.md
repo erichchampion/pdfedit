@@ -174,8 +174,41 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; reading-order/segmentation grouping stated as observable outcomes only, method left to the implementation." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none (held)
 
+### Chapter 15 — Annotations: Model and Appearance Streams
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no appearance-construction code / per-type drawing routine)
+- Gatekeeper sign-off: PROMOTED — `spec/15-annotations.md` (+ citations)
+- Counsel spot-check: N/A
+- Source citations: ISO 32000-1/-2 §12.5 (.2/.3/.4/.5/.6.x), §8.10.1, §8.11, §7.8.3, §7.9.5, §7.7.3.2, §14.3.3, §14.7.4.4; forward refs §12.7 (Ch 16), redaction (Ch 17)
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; appearance-stream generation stated as observable contract only." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 16 — Interactive Forms (AcroForm)
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no field-appearance/text-layout/comb/quadding/flattening algorithm)
+- Gatekeeper sign-off: PROMOTED — `spec/16-acroform.md` (+ citations)
+- Counsel spot-check: N/A (forms standard-defined; appearance generation stated as observable contract)
+- Source citations: ISO 32000-1/-2 §12.7 (.2/.3.x/.4.x), §12.5.6.19, §12.5 (.4/.5), §7.8.3, §7.7.2, §7.7.3.2, §12.6.3; external by name: Adobe XFA (deferred/preserved); forward ref §12.8
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; field appearance generation + flattening stated as observable contracts only." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 18 — Page Manipulation: Insert, Remove, Reorder, Rotate, Merge, Split
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no renumbering/dedup/balancing scheme or traversal order)
+- Gatekeeper sign-off: PROMOTED — `spec/18-page-manipulation.md` (+ citations)
+- Counsel spot-check: N/A
+- Source citations: ISO 32000-1/-2 §7.7.3 (.1/.2/.3/.4), §7.8.3, §14.11.2, §7.7.2, §12.3, §12.5, §12.7.3, §7.3.10, §7.9.5, §7.5 (.4/.6); cross-refs Ch 02/07/19
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; assembly mechanics stated as observable results only." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
 <!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text grouping).
-     Still to draft+review under counsel hold: Ch 06 (encryption), Ch 11 (fonts/CMap). -->
+     Still to draft+review under counsel hold: Ch 06 (encryption), Ch 11 (fonts/CMap), Ch 17 (redaction, RECOMMENDED). -->
 <!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
      §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo. Clusters C1 (05/07/19), rest of C2
-     (08/09), and C3 (12/13) required no fixes. -->
+     (08/09), C3 (12/13), and C4 (15/16/18) required no fixes. -->
