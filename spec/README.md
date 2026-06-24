@@ -5,13 +5,15 @@ implementation is built from. Every chapter must clear the clean-room review gat
 (see [`../docs/clean-room-governance.md`](../docs/clean-room-governance.md) §5) and be
 promoted by the Gatekeeper, with an entry in [`../docs/attestation-log.md`](../docs/attestation-log.md).
 
-> **Status (2026-06-24):** the full spec is authored and independently reviewed (gates 2–3).
-> **17 chapters + both appendices (19 documents) are PROMOTED** into this directory: 00, 01,
-> 02, 03, 05, 07, 08, 09, 10, 12, 13, 15, 16, 18, 19, 20, 21, A, B. **Five chapters passed gates 2–3 but are
-> HELD on the restricted side pending a human counsel spot-check (governance §5 gate 5)** and
-> have not yet crossed the wall: **04** (parser/recovery), **06** (encryption), **11**
-> (fonts/CMap), **14** (structured-text reading order), **17** (redaction). They will be
-> promoted here once counsel signs off. See [`../docs/attestation-log.md`](../docs/attestation-log.md).
+> **Status (2026-06-24): SPEC STAGE COMPLETE.** All **22 chapters + both appendices
+> (24 documents)** are promoted into this directory and independently reviewed (gates 2–3).
+> The five gate-5 chapters — **04** (parser/recovery), **06** (encryption), **11** (fonts/CMap),
+> **14** (structured-text reading order), **17** (redaction) — were promoted on **project-owner
+> authorization**: the owner performed the counsel spot-check to the extent feasible (no issues
+> raised), and all five had passed the independent gate-2/3 cleanliness review with no leakage.
+> **Outstanding (separate workstream, not clean-room/copyright):** the patent-landscape review
+> (governance §1) is owed by counsel before shipping a product built on this spec.
+> See [`../docs/attestation-log.md`](../docs/attestation-log.md).
 
 ## House style
 - Every normative statement cites a public standard by clause (ISO 32000 §-numbers, Unicode

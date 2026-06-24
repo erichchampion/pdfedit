@@ -163,13 +163,13 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; observable rendering contract + device-space mapping only, renderer swappable." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
-### Chapter 14 — Structured-Text Extraction and Reading Order  [HELD — counsel-recommended]
+### Chapter 14 — Structured-Text Extraction and Reading Order  [PROMOTED — owner-authorized 2026-06-24]
 - Date: 2026-06-23
 - Author (spec team): spec team agent (restricted repo)
 - Peer reviewer: independent review agent — PASS (gate 2)
 - Cleanliness reviewer: independent review agent — PASS (gate 3; MAXIMUM scrutiny — no grouping threshold, gap/spacing constant, baseline tolerance, clustering/column-detection method, ordering rule, scan direction, hyphen-decision rule, or tuning table; grouping stated as observable goals only)
-- Gatekeeper sign-off: **NOT PROMOTED — READY pending counsel spot-check (RECOMMENDED, gate 5)**. Flagship heuristic-sensitive chapter; held on the restricted side until counsel confirms no grouping heuristic was transcribed.
-- Counsel spot-check: RECOMMENDED — pending
+- Gatekeeper sign-off: PROMOTED (2026-06-24, owner-authorized) — `spec/14-structured-text.md` (+ citations)
+- Counsel spot-check (gate 5, was RECOMMENDED): performed by project owner to the extent feasible (no issues raised); independent gate-3 review found no grouping-heuristic leakage. Patent review (governance §1) outstanding.
 - Source citations: ISO 32000-1/-2 §9.10 (.2/.3), §9.4 (.3/.4), §9.2.2, §9.3 (.3/.6), §9.7, §14.6 (.1/.2), §14.7 (.2/.3/.4), §14.8 (.2.2/.4); external by name: Unicode Standard, UAX #9 (BiDi), UAX #15 (normalization)
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; reading-order/segmentation grouping stated as observable outcomes only, method left to the implementation." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none (held)
@@ -207,13 +207,13 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; assembly mechanics stated as observable results only." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
-### Chapter 17 — Redaction: Secure Removal of Content  [HELD — counsel-recommended]
+### Chapter 17 — Redaction: Secure Removal of Content  [PROMOTED — owner-authorized 2026-06-24]
 - Date: 2026-06-23 (reviewed 2026-06-24, re-run after an interrupted first attempt)
 - Author (spec team): spec team agent (restricted repo)
 - Peer reviewer: independent review agent — PASS (gate 2)
 - Cleanliness reviewer: independent review agent — PASS (gate 3; no region-intersection test, content-excision procedure, glyph-hit test, clip/coverage rule, threshold, or image-resampling loop — each mechanism named only to disclaim it)
-- Gatekeeper sign-off: **NOT PROMOTED — READY pending counsel spot-check (RECOMMENDED, gate 5)**. Security-critical secure-removal chapter; held until counsel confirms no excision/intersection heuristic was transcribed.
-- Counsel spot-check: RECOMMENDED — pending
+- Gatekeeper sign-off: PROMOTED (2026-06-24, owner-authorized) — `spec/17-redaction.md` (+ citations)
+- Counsel spot-check (gate 5, was RECOMMENDED): performed by project owner to the extent feasible (no issues raised); independent gate-3 review found no excision/intersection-heuristic leakage. Patent review (governance §1) outstanding.
 - Source citations: ISO 32000-2 §12.5.6.23 (redaction annotation) + §12.5.2/.3, §8.10.1, §7.8.2, §8.5, §8.9, §9.4, §9.10, §14.6–14.7, §7.7.2, §7.5.6; project Ch 08/09/12/13/14/15 + Ch 19 §19.5; governance §6
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; every removal requirement stated as problem + observable security outcome (negative byte/extraction/render test), mechanism left to the implementation." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none (held)
@@ -284,9 +284,48 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; standard-defined terminology only." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
-<!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text
-     grouping), Ch 17 (redaction, RECOMMENDED). Drafting in progress under counsel hold:
-     Ch 06 (encryption, REQUIRED), Ch 11 (fonts/CMap, REQUIRED). -->
+### Chapter 04 — Lexical Analysis, Parsing, and Malformed-File Recovery  [PROMOTED — owner-authorized 2026-06-24]
+- Date: 2026-06-23 (promoted 2026-06-24)
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; recovery stated as problem + observable outcome; no MuPDF-specific ordering, magic constants, or scan-window sizes transcribed)
+- Gatekeeper sign-off: PROMOTED (2026-06-24, owner-authorized) — `spec/04-lexing-parsing-recovery.md` (+ citations)
+- Counsel spot-check (gate 5, was REQUIRED): performed by project owner to the extent feasible (no issues raised); independent gate-3 review found no recovery-heuristic leakage. Patent review (governance §1) outstanding.
+- Source citations: ISO 32000-1/-2 §7.2.2–7.2.4, §7.3 (.3–.10), §7.4, §7.5 (.2–.8), §7.7.2–7.7.3, Annex C
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; recovery stated as required observable outcomes derived from ISO 32000 structure, not MuPDF's specific heuristics." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 06 — Encryption, Permissions, and the Standard Security Handler  [PROMOTED — owner-authorized 2026-06-24]
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no key-derivation step table, iteration count, byte-ordering, or padding-constant value transcribed; algorithms named by ISO designation + cipher; primitives delegated to CryptoKit/CommonCrypto)
+- Gatekeeper sign-off: PROMOTED (2026-06-24, owner-authorized) — `spec/06-encryption.md` (+ citations)
+- Counsel spot-check (gate 5, was REQUIRED): performed by project owner to the extent feasible (no issues raised); independent gate-3 review found no crypto-implementation leakage. Patent review (governance §1) outstanding.
+- Source citations: ISO 32000-1/-2 §7.6 (.1–.7), §7.5.5, §7.5.8.2, §7.5.6, §7.4.1, §14.4; external by name: RC4, FIPS-197 (AES), MD5, SHA-2, PKCS padding
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; key-derivation algorithms named by ISO clause + named cipher, no step tables or literal constant values transcribed." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 11 — Fonts: Types, Encodings, CMaps, and ToUnicode  [PROMOTED — owner-authorized 2026-06-24]
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no font-program parser, charstring interpreter, CMap-parsing code, glyph-lookup table, or encoding table transcribed)
+- Gatekeeper sign-off: PROMOTED (2026-06-24, owner-authorized) — `spec/11-fonts.md` (+ citations)
+- Counsel spot-check (gate 5, was REQUIRED): performed by project owner to the extent feasible (no issues raised); independent gate-3 review found no font/CMap-implementation leakage. Patent review (governance §1) outstanding.
+- Source citations: ISO 32000-1/-2 §9.5–9.10 (incl. §9.6.x, §9.7.x, §9.8, §9.9, §9.10.2/.3), Annex D; external by name: Type 1, CFF/Type 2, TrueType, OpenType, Adobe CMap/CID, AGL, Unicode
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; code→glyph and code→Unicode stated as observable mappings per ISO + named specs, no parser/table transcribed." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+<!-- SPEC STAGE COMPLETE (2026-06-24): all 22 chapters + appendices A/B are promoted into spec/.
+     The five gate-5 chapters (04, 06, 11, 14, 17) were promoted on PROJECT-OWNER AUTHORIZATION;
+     the owner performed the counsel spot-check to the extent feasible (no issues raised) and all
+     five had already passed the independent gate-2/3 review with no leakage recorded.
+     OUTSTANDING — the separate patent-landscape review (governance §1) is NOT a copyright/clean-
+     room matter and remains owed (counsel) before shipping a product built on this spec. -->
+<!-- Review fixes applied across the run: Ch02 §2.8 enum count; clause re-anchorings (Ch02 §2.3.3,
+     Ch03 §3.9.1); Ch10 §10.10 operator-list typo. The C5 review (20/21) was re-run 2026-06-24
+     after a session-limit interruption before promotion. -->
 <!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
      §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo. Clusters C1 (05/07/19), rest of C2
      (08/09), C3 (12/13), C4 (15/16/18), and C5 (20/21) required no fixes.
