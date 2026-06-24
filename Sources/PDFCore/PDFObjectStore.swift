@@ -15,7 +15,8 @@ public actor PDFObjectStore {
     public nonisolated let repairReport: RepairReport?
 
     private var entries: [Int: XRefEntry]
-    private var resident: [Int: PDFObject] = [:]      // parsed-on-disk cache + in-memory edits
+    private var cache: [Int: PDFObject] = [:]         // lazily parsed on-disk objects (unchanged)
+    private var edits: [Int: PDFObject] = [:]         // newly created or modified objects
     private var deleted: Set<Int> = []
     private var objStmCache: [Int: [Int: PDFObject]] = [:]
     private var highestNumber: Int
@@ -72,18 +73,19 @@ public actor PDFObjectStore {
 
     func object(_ number: Int) -> PDFObject {
         if deleted.contains(number) { return .null }
-        if let cached = resident[number] { return cached }
+        if let edited = edits[number] { return edited }
+        if let cached = cache[number] { return cached }
         guard let entry = entries[number], let bytes = sourceBytes else { return .null }
         switch entry {
         case .free:
             return .null
         case let .uncompressed(offset, _):
             guard let value = parseAt(offset, bytes: bytes) else { return .null }
-            resident[number] = value
+            cache[number] = value
             return value
         case let .compressed(streamObject, _):
             let value = objectFromStream(streamObject, number: number, bytes: bytes)
-            resident[number] = value
+            cache[number] = value
             return value
         }
     }
@@ -138,7 +140,7 @@ public actor PDFObjectStore {
     /// Define (create or replace) the object for a reference.
     public func define(_ reference: PDFRef, _ object: PDFObject) {
         deleted.remove(reference.number)
-        resident[reference.number] = object
+        edits[reference.number] = object
         highestNumber = max(highestNumber, reference.number)
     }
 
@@ -153,7 +155,8 @@ public actor PDFObjectStore {
     /// Delete an object; it resolves to `.null` and is written as a free entry on save (§3.7.2).
     public func delete(_ reference: PDFRef) {
         deleted.insert(reference.number)
-        resident[reference.number] = nil
+        edits[reference.number] = nil
+        cache[reference.number] = nil
     }
 
     public func setTrailer(_ trailer: PDFDictionary) { self.trailer = trailer }
@@ -161,14 +164,33 @@ public actor PDFObjectStore {
 
     // MARK: - enumeration (for the writer / round-trip)
 
-    /// All object numbers currently defined (on-disk + resident), minus deleted ones.
+    /// All object numbers currently defined (on-disk in-use + edited), minus deleted ones.
     public func definedObjectNumbers() -> [Int] {
         var numbers = Set(entries.keys.filter {
             if case .free = entries[$0]! { return false } else { return true }
         })
-        numbers.formUnion(resident.keys)
+        numbers.formUnion(edits.keys)
         numbers.subtract(deleted)
         return numbers.sorted()
+    }
+
+    /// The highest object number in use (original size or highest edited), for `/Size` (§3.6.2).
+    public func highestObjectNumber() -> Int { highestNumber }
+
+    /// Newly created or modified objects since open (for incremental save, §3.7.1).
+    public func editedObjects() -> [Int: PDFObject] { edits }
+
+    /// Object numbers explicitly deleted since open (written as free entries, §3.7.2).
+    public func deletedObjectNumbers() -> [Int] { deleted.sorted() }
+
+    /// The generation number recorded for an object number in the original cross-reference data
+    /// (used to compute the freed generation on incremental delete, §3.7.2).
+    public func originalGeneration(_ number: Int) -> Int {
+        switch entries[number] {
+        case let .uncompressed(_, generation): return generation
+        case let .free(_, generation): return generation
+        default: return 0
+        }
     }
 
     // MARK: - document conveniences

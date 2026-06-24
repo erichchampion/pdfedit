@@ -21,7 +21,7 @@ let package = Package(
     products: [
         .library(name: "PDFFilters", targets: ["PDFFilters"]),
         .library(name: "PDFCore", targets: ["PDFCore"]),
-        // PDFWriter product is added as that target lands.
+        .library(name: "PDFWriter", targets: ["PDFWriter"]),
     ],
     targets: [
         // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
@@ -38,6 +38,11 @@ let package = Package(
             dependencies: ["PDFFilters"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        .target(
+            name: "PDFWriter",
+            dependencies: ["PDFCore", "PDFFilters"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
 
         .testTarget(
             name: "PDFFiltersTests",
@@ -47,6 +52,11 @@ let package = Package(
         .testTarget(
             name: "PDFCoreTests",
             dependencies: ["PDFCore", "PDFFilters"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "PDFWriterTests",
+            dependencies: ["PDFWriter", "PDFCore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

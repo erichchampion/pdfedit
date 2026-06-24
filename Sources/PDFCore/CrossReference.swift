@@ -19,6 +19,15 @@ struct XRefResult: Sendable {
     var usedXRefStream: Bool
 }
 
+/// Public file-structure utilities (spec Ch 03) usable by other modules (e.g. the writer's
+/// incremental `/Prev` chaining, §3.7.1) without exposing the reader's internals.
+public enum PDFFileStructure {
+    /// Byte offset recorded by the file's last `startxref` (spec §3.6.1), or nil if absent.
+    public static func lastStartxrefOffset(_ bytes: [UInt8]) -> Int? {
+        CrossReferenceReader.locateStartxref(bytes)
+    }
+}
+
 struct CrossReferenceReader {
     let bytes: [UInt8]
     init(_ bytes: [UInt8]) { self.bytes = bytes }
@@ -173,7 +182,11 @@ struct CrossReferenceReader {
 
     // MARK: - startxref (§3.6.1)
 
-    private func findStartxref() -> Int? {
+    private func findStartxref() -> Int? { Self.locateStartxref(bytes) }
+
+    /// The byte offset recorded by the file's last `startxref` (spec §3.6.1). Used by the writer
+    /// to chain an incremental update's trailer `/Prev` to the previous section (§3.7.1).
+    static func locateStartxref(_ bytes: [UInt8]) -> Int? {
         let needle = Array("startxref".utf8)
         guard bytes.count >= needle.count else { return nil }
         var i = bytes.count - needle.count
