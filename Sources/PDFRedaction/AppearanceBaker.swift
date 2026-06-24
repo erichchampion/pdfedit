@@ -44,7 +44,7 @@ public struct AppearanceBaker: Sendable {
             }
             if let text = mark.overlayText, !text.isEmpty {
                 needsFont = true
-                let da = parseDA(mark.defaultAppearance)
+                let da = DefaultAppearance.parse(mark.defaultAppearance ?? "")
                 gen.beginText()
                 gen.setFillRGB(da.color)
                 gen.setFont(Self.fontName, size: da.size)
@@ -81,20 +81,5 @@ public struct AppearanceBaker: Sendable {
             page.set(PDFName("Resources"), .dictionary(resources))
             await store.define(pageRef, .dictionary(page))
         }
-    }
-
-    /// A minimal /DA parse for the overlay (size + grey/RGB fill); defaults to 12pt black (§12.7.3.3).
-    private func parseDA(_ da: String?) -> (size: Double, color: RGB) {
-        var size = 12.0, color = RGB.black
-        guard let da else { return (size, color) }
-        let tokens = da.split(whereSeparator: { $0 == " " || $0 == "\n" || $0 == "\t" }).map(String.init)
-        for (i, t) in tokens.enumerated() {
-            if t == "Tf", i >= 1, let s = Double(tokens[i - 1]), s > 0 { size = s }
-            if t == "g", i >= 1, let g = Double(tokens[i - 1]) { color = RGB(g, g, g) }
-            if t == "rg", i >= 3, let r = Double(tokens[i - 3]), let gc = Double(tokens[i - 2]), let b = Double(tokens[i - 1]) {
-                color = RGB(r, gc, b)
-            }
-        }
-        return (size, color)
     }
 }

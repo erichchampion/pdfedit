@@ -9,12 +9,6 @@ import PDFColor
 import PDFContent
 import PDFAnnotations
 
-struct DA: Sendable {
-    var fontName: PDFName = PDFName("Helv")
-    var size: Double = 12
-    var color: RGB = .black
-}
-
 public struct FormEditor: Sendable {
     let store: PDFObjectStore
     public init(store: PDFObjectStore) { self.store = store }
@@ -84,7 +78,7 @@ public struct FormEditor: Sendable {
         }
     }
 
-    private func textAppearance(_ value: String, rect: PDFRectangle, da: DA) async -> PDFRef {
+    private func textAppearance(_ value: String, rect: PDFRectangle, da: DefaultAppearance) async -> PDFRef {
         let bbox = PDFRectangle(x0: 0, y0: 0, x1: rect.width, y1: rect.height)
         var gen = ContentGenerator()
         gen.beginText()
@@ -105,41 +99,11 @@ public struct FormEditor: Sendable {
         return await AppearanceBuilder.makeFormXObject(bbox: bbox, content: bytes, resources: resources, in: store)
     }
 
-    private func effectiveDA(_ field: FieldHandle) async -> DA {
-        if let da = await field.inherited(PDFName("DA"), in: store)?.stringValue?.asText { return parseDA(da) }
+    private func effectiveDA(_ field: FieldHandle) async -> DefaultAppearance {
+        if let da = await field.inherited(PDFName("DA"), in: store)?.stringValue?.asText { return DefaultAppearance.parse(da) }
         if let form = await AcroForm(store: store).formDict(),
-           let da = form[PDFName("DA")]?.stringValue?.asText { return parseDA(da) }
-        return DA()
-    }
-
-    private func parseDA(_ string: String) -> DA {
-        var da = DA()
-        var lexer = PDFContentLexer(Array(string.utf8))
-        var operands: [PDFObject] = []
-        loop: while true {
-            guard let lex = try? lexer.next() else { break }
-            switch lex {
-            case .end: break loop
-            case let .operand(o): operands.append(o)
-            case .inlineImage: operands.removeAll()
-            case let .op(op):
-                switch op {
-                case "Tf" where operands.count >= 2:
-                    if let n = operands[operands.count - 2].nameValue { da.fontName = n }
-                    da.size = operands.last?.doubleValue ?? da.size
-                case "g" where !operands.isEmpty:
-                    let g = operands.last?.doubleValue ?? 0; da.color = RGB(g, g, g)
-                case "rg" where operands.count >= 3:
-                    da.color = RGB(operands[operands.count - 3].doubleValue ?? 0,
-                                   operands[operands.count - 2].doubleValue ?? 0,
-                                   operands.last?.doubleValue ?? 0)
-                default: break
-                }
-                operands.removeAll()
-            }
-        }
-        if da.size == 0 { da.size = 12 }   // auto-size → default (full auto-fit deferred, §16.6)
-        return da
+           let da = form[PDFName("DA")]?.stringValue?.asText { return DefaultAppearance.parse(da) }
+        return DefaultAppearance()
     }
 
     // MARK: - flatten (§16.9)
