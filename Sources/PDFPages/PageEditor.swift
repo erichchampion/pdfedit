@@ -147,7 +147,7 @@ public struct PageEditor: Sendable {
         var out: [PDFRef] = []
         var visited = Set<Int>()
         func walk(_ ref: PDFRef, _ depth: Int) async {
-            guard depth < 64, !visited.contains(ref.number) else { return }
+            guard depth < PDFLimits.inheritanceDepth, !visited.contains(ref.number) else { return }
             visited.insert(ref.number)
             guard let node = await store.resolve(ref).dictionaryValue else { return }
             let kids = await store.dereference(node[PDFName("Kids")] ?? .null).arrayValue

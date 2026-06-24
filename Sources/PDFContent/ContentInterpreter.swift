@@ -41,7 +41,7 @@ final class Machine {
     init(store: PDFObjectStore) { self.store = store }
 
     func execute(content: [UInt8], resources: PDFDictionary?, initialState: GraphicsState, depth: Int) async throws {
-        guard depth < 12 else { return }   // form recursion guard (§8.10.1)
+        guard depth < PDFLimits.formRecursionDepth else { return }   // form recursion guard (§8.10.1)
         var state = initialState
         var stack: [GraphicsState] = []
         var path = PDFPath()

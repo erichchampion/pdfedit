@@ -33,13 +33,7 @@ public struct RasterizeFlatten: Sendable {
         for i in 0..<(img.pixelWidth * img.pixelHeight) {
             rgb[i * 3] = img.pixels[i * 4]; rgb[i * 3 + 1] = img.pixels[i * 4 + 1]; rgb[i * 3 + 2] = img.pixels[i * 4 + 2]
         }
-        let encoded = try FlateFilter().encode(rgb, nil)
-        let imgRef = await store.add(.stream(PDFStream(dictionary: PDFDictionary(pairs: [
-            (PDFName("Type"), .name(PDFName("XObject"))), (PDFName("Subtype"), .name(PDFName("Image"))),
-            (PDFName("Width"), .integer(Int64(img.pixelWidth))), (PDFName("Height"), .integer(Int64(img.pixelHeight))),
-            (PDFName("ColorSpace"), .name(PDFName("DeviceRGB"))), (PDFName("BitsPerComponent"), .integer(8)),
-            (PDFName("Filter"), .name(PDFName("FlateDecode"))), (PDFName("Length"), .integer(Int64(encoded.count))),
-        ]), rawData: encoded)))
+        let imgRef = await store.add(try flateRGBImageObject(width: img.pixelWidth, height: img.pixelHeight, rgb: rgb))
 
         // One content stream drawing the image across the page box (§8.9.5.2 unit-square placement).
         var gen = ContentGenerator()

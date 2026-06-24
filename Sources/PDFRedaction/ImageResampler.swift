@@ -104,14 +104,6 @@ public struct ImageResampler: Sendable {
             }
         }
         guard changed else { return nil }
-
-        let encoded = try FlateFilter().encode(rgb, nil)
-        let dict = PDFDictionary(pairs: [
-            (PDFName("Type"), .name(PDFName("XObject"))), (PDFName("Subtype"), .name(PDFName("Image"))),
-            (PDFName("Width"), .integer(Int64(w))), (PDFName("Height"), .integer(Int64(h))),
-            (PDFName("ColorSpace"), .name(PDFName("DeviceRGB"))), (PDFName("BitsPerComponent"), .integer(8)),
-            (PDFName("Filter"), .name(PDFName("FlateDecode"))), (PDFName("Length"), .integer(Int64(encoded.count))),
-        ])
-        return await store.add(.stream(PDFStream(dictionary: dict, rawData: encoded)))
+        return await store.add(try flateRGBImageObject(width: w, height: h, rgb: rgb))
     }
 }

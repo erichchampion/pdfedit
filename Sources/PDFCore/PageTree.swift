@@ -23,7 +23,7 @@ extension PDFObjectStore {
     }
 
     private func findPage(_ node: PDFDictionary, target: Int, counter: inout Int, visited: inout Set<Int>, depth: Int) -> PDFDictionary? {
-        guard depth < 64 else { return nil }
+        guard depth < PDFLimits.inheritanceDepth else { return nil }
         let type = node[PDFName("Type")]?.nameValue?.string
         let kidsObj = dereference(node[PDFName("Kids")] ?? .null).arrayValue
         if type == "Page" || kidsObj == nil {
@@ -55,7 +55,7 @@ extension PDFObjectStore {
     }
 
     private func findPageRef(_ nodeRef: PDFRef, target: Int, counter: inout Int, visited: inout Set<Int>, depth: Int) -> PDFRef? {
-        guard depth < 64, !visited.contains(nodeRef.number) else { return nil }
+        guard depth < PDFLimits.inheritanceDepth, !visited.contains(nodeRef.number) else { return nil }
         visited.insert(nodeRef.number)
         guard let node = resolve(nodeRef).dictionaryValue else { return nil }
         let type = node[PDFName("Type")]?.nameValue?.string
@@ -86,7 +86,7 @@ extension PDFObjectStore {
     }
 
     private func collectPageRefs(_ nodeRef: PDFRef, into out: inout [PDFRef], visited: inout Set<Int>, depth: Int) {
-        guard depth < 64, !visited.contains(nodeRef.number) else { return }
+        guard depth < PDFLimits.inheritanceDepth, !visited.contains(nodeRef.number) else { return }
         visited.insert(nodeRef.number)
         guard let node = resolve(nodeRef).dictionaryValue else { return }
         let type = node[PDFName("Type")]?.nameValue?.string
@@ -103,7 +103,7 @@ extension PDFObjectStore {
         func inherited(_ key: PDFName) -> PDFObject? {
             var current: PDFDictionary? = page
             var depth = 0
-            while let node = current, depth < 64 {
+            while let node = current, depth < PDFLimits.inheritanceDepth {
                 if let value = node[key] { return value }
                 current = dereference(node[PDFName("Parent")] ?? .null).dictionaryValue
                 depth += 1

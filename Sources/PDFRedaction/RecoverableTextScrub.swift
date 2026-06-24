@@ -52,7 +52,7 @@ public struct RecoverableTextScrub: Sendable {
 
     /// Walk the structure tree, nulling text-recovering entries that reproduce removed text.
     private func scrubStructure(_ ref: PDFRef, _ fragments: [String], visited: Set<Int>) async {
-        guard visited.count < 4096, !visited.contains(ref.number),
+        guard visited.count < PDFLimits.structureWalk, !visited.contains(ref.number),
               var dict = await store.resolve(ref).dictionaryValue else { return }
         var visited = visited; visited.insert(ref.number)
 

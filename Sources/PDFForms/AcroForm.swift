@@ -48,7 +48,7 @@ public struct FieldHandle: Sendable {
         var names: [String] = []
         var current: PDFRef? = ref
         var depth = 0
-        while let r = current, depth < 64 {
+        while let r = current, depth < PDFLimits.inheritanceDepth {
             let dict = await store.resolve(r).dictionaryValue
             if let partial = dict?[PDFName("T")]?.stringValue?.asText { names.insert(partial, at: 0) }
             current = dict?[PDFName("Parent")]?.referenceValue
@@ -82,7 +82,7 @@ public struct FieldHandle: Sendable {
     func inherited(_ key: PDFName, in store: PDFObjectStore) async -> PDFObject? {
         var current: PDFRef? = ref
         var depth = 0
-        while let r = current, depth < 64 {
+        while let r = current, depth < PDFLimits.inheritanceDepth {
             let dict = await store.resolve(r).dictionaryValue
             if let value = dict?[key] { return await store.dereference(value) }
             current = dict?[PDFName("Parent")]?.referenceValue
@@ -124,7 +124,7 @@ public struct AcroForm: Sendable {
     }
 
     private func collectTerminals(_ ref: PDFRef, into out: inout [FieldHandle], depth: Int) async {
-        guard depth < 64, let dict = await store.resolve(ref).dictionaryValue else { return }
+        guard depth < PDFLimits.inheritanceDepth, let dict = await store.resolve(ref).dictionaryValue else { return }
         let kids = await store.dereference(dict[PDFName("Kids")] ?? .null).arrayValue ?? []
         // Sub-fields carry /T; widget kids do not. A node with field-kids recurses; else it is terminal.
         var fieldKids: [PDFRef] = []

@@ -81,7 +81,7 @@ public struct ContentExcisor: Sendable {
     func excise(content: [UInt8], resources: PDFDictionary?, initialCTM: PDFMatrix,
                 regions: [RedactionRegion], depth: Int, ctx: ExcisionContext,
                 ownerRef: PDFRef?) async throws -> ([UInt8], Bool) {
-        guard depth < 12 else { return (content, false) }   // form recursion guard (§8.10.1)
+        guard depth < PDFLimits.formRecursionDepth else { return (content, false) }   // form recursion guard (§8.10.1)
         var out: [UInt8] = []
         out.reserveCapacity(content.count)   // re-emitted output is ~the same size as the input
         var removed = false
