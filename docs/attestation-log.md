@@ -141,7 +141,41 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; each function/shading type stated as parameters + input→output contract only." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
-<!-- Ch 04 (recovery) remains UNPROMOTED — blocked pending human counsel spot-check (gate 5). -->
+### Chapter 12 — Images: XObjects, Masks, and Sample Decoding
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no sample-unpacking/decode/masking loop or tuning constant)
+- Gatekeeper sign-off: PROMOTED — `spec/12-images.md` (+ citations)
+- Counsel spot-check: N/A (image structures standard-defined)
+- Source citations: ISO 32000-1/-2 §8.9 (.1/.2/.5/.5.2/.6.x/.7), §11.6.5.2, §8.6.6.3, §8.3.2.3, §7.3.8.2, §7.4; external by name (via Ch 05): JPEG/JPEG2000/CCITT/JBIG2
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; image assembly stated as parameters + observable contract." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 13 — Rasterization Target Abstraction
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no rasterizer/scan-conversion/AA algorithm or constant)
+- Gatekeeper sign-off: PROMOTED — `spec/13-rasterization.md` (+ citations)
+- Counsel spot-check: N/A
+- Source citations: ISO 32000-1/-2 §8.2–8.5, §8.9, §9, §11.3–11.6, §14.11.2, §7.7.3.3; external by name: Apple Core Graphics
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; observable rendering contract + device-space mapping only, renderer swappable." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 14 — Structured-Text Extraction and Reading Order  [HELD — counsel-recommended]
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; MAXIMUM scrutiny — no grouping threshold, gap/spacing constant, baseline tolerance, clustering/column-detection method, ordering rule, scan direction, hyphen-decision rule, or tuning table; grouping stated as observable goals only)
+- Gatekeeper sign-off: **NOT PROMOTED — READY pending counsel spot-check (RECOMMENDED, gate 5)**. Flagship heuristic-sensitive chapter; held on the restricted side until counsel confirms no grouping heuristic was transcribed.
+- Counsel spot-check: RECOMMENDED — pending
+- Source citations: ISO 32000-1/-2 §9.10 (.2/.3), §9.4 (.3/.4), §9.2.2, §9.3 (.3/.6), §9.7, §14.6 (.1/.2), §14.7 (.2/.3/.4), §14.8 (.2.2/.4); external by name: Unicode Standard, UAX #9 (BiDi), UAX #15 (normalization)
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; reading-order/segmentation grouping stated as observable outcomes only, method left to the implementation." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none (held)
+
+<!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text grouping).
+     Still to draft+review under counsel hold: Ch 06 (encryption), Ch 11 (fonts/CMap). -->
 <!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
-     §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo (k/K pairing). Clusters C1 (05/07/19)
-     and the rest of C2 (08/09) required no fixes. -->
+     §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo. Clusters C1 (05/07/19), rest of C2
+     (08/09), and C3 (12/13) required no fixes. -->
