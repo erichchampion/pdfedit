@@ -49,5 +49,32 @@ Template:
 
 ---
 
-<!-- No promotions yet. The spec/ directory currently holds only skeleton stubs authored on
-     the clean side from public standards; none has crossed the wall via the gate process. -->
+### Chapter 02 — PDF Object Model
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; diffed against MuPDF source, no leakage)
+- Gatekeeper sign-off: PROMOTED — clean draft moved from restricted `spec-drafts/02-pdf-object-model.md` to clean `spec/02-pdf-object-model.md` (+ citations)
+- Counsel spot-check: N/A (standard-defined object model; not a recovery/encryption/font chapter)
+- Source citations: ISO 32000-1/-2 §7.2.2–7.2.4, §7.3 and subclauses (.2–.10), §7.4, §7.5.4–7.5.5, §7.5.8, §7.7.2, §7.7.3.2, §7.9, Annex C
+- MuPDF-exposure attestation: "This chapter contains no MuPDF code or copyrightable
+  expression. Any MuPDF reading informed only fact-finding; behavior is expressed by
+  reference to the cited public standards and/or black-box observation." — signed: spec team agent; independently verified by review agent (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 03 — File Structure
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; diffed against MuPDF source, no leakage)
+- Gatekeeper sign-off: PROMOTED — clean draft moved from restricted `spec-drafts/03-file-structure.md` to clean `spec/03-file-structure.md` (+ citations)
+- Counsel spot-check: N/A (standard-defined container; recovery deferred to Ch 04, which is counsel-gated)
+- Source citations: ISO 32000-1/-2 §7.5.1–7.5.8 (incl. §7.5.8.2–.4), §7.3.8, §7.3.10, §7.4, §7.6, §7.7.2, §12.8, §14.4
+- MuPDF-exposure attestation: "This chapter contains no MuPDF code or copyrightable
+  expression. Any MuPDF reading informed only fact-finding; behavior is expressed by
+  reference to the cited public standards and/or black-box observation." — signed: spec team agent; independently verified by review agent (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+<!-- Ch 04 (recovery) remains UNPROMOTED — blocked pending human counsel spot-check (gate 5). -->
+<!-- Three review fixes were applied on the restricted side before promotion: an object-type
+     enumeration count (Ch02 §2.8), two clause re-anchorings (Ch02 §2.3.3, Ch03 §3.9.1). -->
