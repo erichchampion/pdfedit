@@ -48,15 +48,16 @@ public struct ContentExcisor: Sendable {
         let ctx = ExcisionContext()
         let (rewritten, topRemoved) = try await excise(
             content: content, resources: resources, initialCTM: .identity,
-            regions: regions, depth: 0, ctx: ctx)
+            regions: regions, depth: 0, ctx: ctx, ownerRef: pageRef)
 
         // Replace the page's /Contents only if a glyph/path was removed from the top stream — an
-        // untouched stream keeps its original bytes (§17.5). Form XObjects are edited in place.
+        // untouched stream keeps its original bytes (§17.5). Re-read the page first: a clone-on-write
+        // rebind (a shared form/image) may have updated /Resources during the pass.
         if topRemoved {
             let newRef = await store.add(.stream(PDFStream(
                 dictionary: PDFDictionary([PDFName("Length"): .integer(Int64(rewritten.count))]),
                 rawData: rewritten)))
-            var updated = page
+            var updated = await store.resolve(pageRef).dictionaryValue ?? page
             updated.set(PDFName("Contents"), .reference(newRef))
             await store.define(pageRef, .dictionary(updated))
         }
@@ -66,7 +67,8 @@ public struct ContentExcisor: Sendable {
     // MARK: - the rewriting pass
 
     func excise(content: [UInt8], resources: PDFDictionary?, initialCTM: PDFMatrix,
-                regions: [RedactionRegion], depth: Int, ctx: ExcisionContext) async throws -> ([UInt8], Bool) {
+                regions: [RedactionRegion], depth: Int, ctx: ExcisionContext,
+                ownerRef: PDFRef?) async throws -> ([UInt8], Bool) {
         guard depth < 12 else { return (content, false) }   // form recursion guard (§8.10.1)
         var out: [UInt8] = []
         var removed = false
@@ -187,7 +189,7 @@ public struct ContentExcisor: Sendable {
                 // XObjects
                 case "Do":
                     if let name = operands.last?.nameValue {
-                        try await handleDo(name.string, resources, state, regions, depth, ctx)
+                        try await handleDo(name.string, resources, state, regions, depth, ctx, ownerRef)
                     }
                     emit(operands, op)
 
@@ -272,7 +274,8 @@ public struct ContentExcisor: Sendable {
     // MARK: - form XObject recursion
 
     private func handleDo(_ name: String, _ resources: PDFDictionary?, _ state: ExcisionState,
-                          _ regions: [RedactionRegion], _ depth: Int, _ ctx: ExcisionContext) async throws {
+                          _ regions: [RedactionRegion], _ depth: Int, _ ctx: ExcisionContext,
+                          _ ownerRef: PDFRef?) async throws {
         guard let xobjects = await store.dereference(resources?[PDFName("XObject")] ?? .null).dictionaryValue,
               let ref = xobjects[PDFName(name)]?.referenceValue,
               let stream = await store.resolve(ref).streamValue else { return }
@@ -282,22 +285,31 @@ public struct ContentExcisor: Sendable {
         do { content = try await store.decodedData(of: stream) }
         catch { throw (error as? PDFError) ?? PDFError.malformed("redaction: form XObject could not be decoded") }
 
+        // Clone-on-write: copy the form to a fresh ref before editing, so a form shared by another page
+        // is never mutated (§18.5). The clone is excised in place; its name is rebound on the owner.
+        let cloneRef = await store.add(.stream(stream))
+
         var formCTM = state.ctm
         if let m = (stream.dictionary[PDFName("Matrix")]?.arrayValue).flatMap({ PDFMatrix(array: $0) }) {
             formCTM = m.concatenating(state.ctm)
         }
         let formResources = await store.dereference(stream.dictionary[PDFName("Resources")] ?? .null).dictionaryValue ?? resources
+        let before = ctx.formChanged
         let (rewritten, removed) = try await excise(content: content, resources: formResources,
                                                     initialCTM: formCTM, regions: regions,
-                                                    depth: depth + 1, ctx: ctx)
-        guard removed else { return }
+                                                    depth: depth + 1, ctx: ctx, ownerRef: cloneRef)
+        // Keep the clone if this form's own content changed OR a nested form was rewritten into it.
+        guard removed || ctx.formChanged != before else { await store.delete(cloneRef); return }
         ctx.formChanged = true
-        // Rewrite the form stream in place, uncompressed (clone-on-write for shared forms deferred).
-        var dict = stream.dictionary
+
+        // Write the rewritten content into the clone, preserving any nested rebinds made to its
+        // /Resources during the recursion. Then rebind the invoking name on the owner → the clone.
+        var dict = (await store.resolve(cloneRef).streamValue)?.dictionary ?? stream.dictionary
         dict.set(PDFName("Filter"), .null)
         dict.set(PDFName("DecodeParms"), .null)
         dict.set(PDFName("Length"), .integer(Int64(rewritten.count)))
-        await store.define(ref, .stream(PDFStream(dictionary: dict, rawData: rewritten)))
+        await store.define(cloneRef, .stream(PDFStream(dictionary: dict, rawData: rewritten)))
+        if let ownerRef { await rebindXObject(PDFName(name), to: cloneRef, inOwner: ownerRef, store: store) }
     }
 
     // MARK: - resources
@@ -343,6 +355,28 @@ func currentTokens(_ operands: [PDFObject], _ op: String) -> [UInt8] {
     for o in operands { out.append(contentsOf: serializeOperand(o)); out.append(0x20) }
     out.append(contentsOf: op.utf8); out.append(0x0A)
     return out
+}
+
+/// Rebind a named XObject in an owner's `/Resources /XObject` to a new ref (clone-on-write rebind,
+/// §18.5). The owner is a page leaf (a dictionary) or a form XObject (a stream). Only the named entry
+/// is changed; other resources are preserved. (A fully-inherited owner `/Resources` is an accepted
+/// edge — the common direct-/Resources case is handled.)
+func rebindXObject(_ name: PDFName, to newRef: PDFRef, inOwner ownerRef: PDFRef, store: PDFObjectStore) async {
+    func updated(_ dict: PDFDictionary) async -> PDFDictionary {
+        var dict = dict
+        var resources = await store.dereference(dict[PDFName("Resources")] ?? .null).dictionaryValue ?? PDFDictionary()
+        var xobjects = await store.dereference(resources[PDFName("XObject")] ?? .null).dictionaryValue ?? PDFDictionary()
+        xobjects.set(name, .reference(newRef))
+        resources.set(PDFName("XObject"), .dictionary(xobjects))
+        dict.set(PDFName("Resources"), .dictionary(resources))
+        return dict
+    }
+    let obj = await store.resolve(ownerRef)
+    if let dict = obj.dictionaryValue {
+        await store.define(ownerRef, .dictionary(await updated(dict)))
+    } else if let stream = obj.streamValue {
+        await store.define(ownerRef, .stream(PDFStream(dictionary: await updated(stream.dictionary), rawData: stream.rawData)))
+    }
 }
 
 /// Reconstruct an inline image (`BI … ID <data> EI`) verbatim from its parsed dict + raw bytes.

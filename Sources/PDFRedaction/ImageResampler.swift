@@ -22,7 +22,8 @@ public struct ImageResampler: Sendable {
     @discardableResult
     public func resamplePage(at index: Int, regions: [RedactionRegion]) async throws -> Bool {
         guard !regions.isEmpty,
-              let page = await store.page(at: index) else { return false }
+              let pageRef = await store.pageReference(at: index),
+              let page = await store.resolve(pageRef).dictionaryValue else { return false }
         let resources = await store.effectivePageAttributes(page).resources
 
         // Image placements (name → device CTMs) from the display list — covers images nested in form
@@ -41,8 +42,11 @@ public struct ImageResampler: Sendable {
             guard let ref = await resolveXObjectRef(name, resources),
                   let stream = await store.resolve(ref).streamValue,
                   stream.dictionary[PDFName("Subtype")]?.nameValue?.string == "Image" else { continue }
-            if try await resample(ref: ref, stream: stream, resources: resources,
-                                  matrices: matrices, regions: regions) {
+            // Clone-on-write: the resampled image is a NEW object; rebind the page's resource name to
+            // it so an image shared by another page is never altered (§18.5).
+            if let newRef = try await resample(stream: stream, resources: resources,
+                                               matrices: matrices, regions: regions) {
+                await rebindXObject(PDFName(name), to: newRef, inOwner: pageRef, store: store)
                 anyChanged = true
             }
         }
@@ -54,14 +58,13 @@ public struct ImageResampler: Sendable {
         return xobjects?[PDFName(name)]?.referenceValue
     }
 
-    /// Decode the image, zero every sample whose device point lies in a region under any placement,
-    /// and overwrite the XObject in place with a fresh Flate DeviceRGB image. Clone-on-write for
-    /// shared images is deferred.
-    private func resample(ref: PDFRef, stream: PDFStream, resources: PDFDictionary?,
-                          matrices: [PDFMatrix], regions: [RedactionRegion]) async throws -> Bool {
+    /// Decode the image, zero every sample whose device point lies in a region under any placement, and
+    /// return a NEW Flate DeviceRGB image XObject (clone-on-write, §18.5); nil if nothing was covered.
+    private func resample(stream: PDFStream, resources: PDFDictionary?,
+                          matrices: [PDFMatrix], regions: [RedactionRegion]) async throws -> PDFRef? {
         let image = try await ImageDecoder(store: store).decode(stream: stream, resources: resources)
         let w = image.width, h = image.height
-        guard w > 0, h > 0 else { return false }
+        guard w > 0, h > 0 else { return nil }
 
         var rgb = [UInt8](repeating: 0, count: w * h * 3)
         var changed = false
@@ -82,7 +85,7 @@ public struct ImageResampler: Sendable {
                 }
             }
         }
-        guard changed else { return false }
+        guard changed else { return nil }
 
         let encoded = try FlateFilter().encode(rgb, nil)
         let dict = PDFDictionary(pairs: [
@@ -91,7 +94,6 @@ public struct ImageResampler: Sendable {
             (PDFName("ColorSpace"), .name(PDFName("DeviceRGB"))), (PDFName("BitsPerComponent"), .integer(8)),
             (PDFName("Filter"), .name(PDFName("FlateDecode"))), (PDFName("Length"), .integer(Int64(encoded.count))),
         ])
-        await store.define(ref, .stream(PDFStream(dictionary: dict, rawData: encoded)))
-        return true
+        return await store.add(.stream(PDFStream(dictionary: dict, rawData: encoded)))
     }
 }

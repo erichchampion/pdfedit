@@ -53,16 +53,20 @@ public struct RedactionApplier: Sendable {
 
     /// Apply redaction to every marked page and write the result with the sanitizing save (§17.6).
     /// The removed text is passed to the save as a forbidden byte sequence so the no-residue property
-    /// is verified (§19.5).
+    /// (§17.6/§19.5).
+    ///
+    /// The save runs in `.sanitizing` mode (full rewrite, no `/Prev`, no prior-version bytes, GC). It
+    /// does NOT pass the removed text as a forbidden byte sequence: the same text may legitimately
+    /// survive elsewhere (e.g. a form XObject shared by an unredacted page, or the same word on another
+    /// page), so a global text byte-scan is not a sound correctness gate. The no-residue guarantee
+    /// rests on the excision being physical, redaction failing closed on anything it cannot remove
+    /// (§17.4), and the sanitizing rewrite leaving no prior copy (§19.5).
     public func applyAll(options: RedactionApplyOptions = .init()) async throws -> [UInt8] {
-        var removed: [String] = []
         let pageCount = await store.pageCount()
         for index in 0..<pageCount {
-            let text = try await apply(onPageAt: index, options: options)
-            if !text.isEmpty { removed.append(text) }
+            _ = try await apply(onPageAt: index, options: options)
         }
-        let forbidden = removed.map { Array($0.utf8) }
-        return try await PDFWriter.save(store, options: .sanitizing(forbiddenResidue: forbidden))
+        return try await PDFWriter.save(store, options: .sanitizing)
     }
 
     // MARK: - reading a /Redact mark back into the value model
