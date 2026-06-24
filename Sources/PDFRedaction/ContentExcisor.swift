@@ -11,9 +11,19 @@
 import PDFCore
 import PDFFonts
 
-/// Mutable removal flag shared across the form-recursion (a reference so nested excisions can report
-/// that a form XObject was rewritten).
-final class RemovalFlag: @unchecked Sendable { var changed = false }
+/// Accumulates results that span the form-recursion (a reference so nested excisions can report a
+/// rewritten form and contribute to the removed-text set used by the metadata/structure scrub).
+final class ExcisionContext: @unchecked Sendable {
+    var formChanged = false
+    var removedText = ""
+}
+
+/// The outcome of excising one page (spec §17.4.3 needs the removed text for the recoverable-text
+/// scrub).
+public struct ExcisionResult: Sendable {
+    public var changed: Bool
+    public var removedText: String
+}
 
 public struct ContentExcisor: Sendable {
     let store: PDFObjectStore
@@ -23,10 +33,12 @@ public struct ContentExcisor: Sendable {
     /// replacing `/Contents` with a single rewritten, uncompressed stream. Returns true if anything
     /// on the page changed.
     @discardableResult
-    public func excisePage(at index: Int, regions: [RedactionRegion]) async throws -> Bool {
+    public func excisePage(at index: Int, regions: [RedactionRegion]) async throws -> ExcisionResult {
         guard !regions.isEmpty,
               let pageRef = await store.pageReference(at: index),
-              let page = await store.resolve(pageRef).dictionaryValue else { return false }
+              let page = await store.resolve(pageRef).dictionaryValue else {
+            return ExcisionResult(changed: false, removedText: "")
+        }
 
         var content = [UInt8]()
         let contentsObj = await store.dereference(page[PDFName("Contents")] ?? .null)
@@ -38,10 +50,10 @@ public struct ContentExcisor: Sendable {
         }
         let resources = await store.effectivePageAttributes(page).resources
 
-        let formFlag = RemovalFlag()
+        let ctx = ExcisionContext()
         let (rewritten, topRemoved) = try await excise(
             content: content, resources: resources, initialCTM: .identity,
-            regions: regions, depth: 0, formFlag: formFlag)
+            regions: regions, depth: 0, ctx: ctx)
 
         // Replace the page's /Contents only if a glyph/path was removed from the top stream — an
         // untouched stream keeps its original bytes (§17.5). Form XObjects are edited in place.
@@ -53,13 +65,13 @@ public struct ContentExcisor: Sendable {
             updated.set(PDFName("Contents"), .reference(newRef))
             await store.define(pageRef, .dictionary(updated))
         }
-        return topRemoved || formFlag.changed
+        return ExcisionResult(changed: topRemoved || ctx.formChanged, removedText: ctx.removedText)
     }
 
     // MARK: - the rewriting pass
 
     func excise(content: [UInt8], resources: PDFDictionary?, initialCTM: PDFMatrix,
-                regions: [RedactionRegion], depth: Int, formFlag: RemovalFlag) async throws -> ([UInt8], Bool) {
+                regions: [RedactionRegion], depth: Int, ctx: ExcisionContext) async throws -> ([UInt8], Bool) {
         guard depth < 12 else { return (content, false) }   // form recursion guard (§8.10.1)
         var out: [UInt8] = []
         var removed = false
@@ -149,19 +161,19 @@ public struct ContentExcisor: Sendable {
 
                 // text showing — rewrite to drop in-region glyphs
                 case "Tj":
-                    if let s = operands.last?.stringValue, let rw = rewriteShow(s.bytes, &state, regions) {
+                    if let s = operands.last?.stringValue, let rw = rewriteShow(s.bytes, &state, regions, ctx) {
                         out.append(contentsOf: rw); removed = true
                     } else { emit(operands, op) }
                 case "TJ":
                     if let arr = operands.last?.arrayValue {
-                        if let rw = rewriteTJ(arr, &state, regions) { out.append(contentsOf: rw); removed = true }
+                        if let rw = rewriteTJ(arr, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                         else { emit(operands, op) }
                     } else { emit(operands, op) }
                 case "'":
                     state.translateText(0, -state.leading)
                     out.append(contentsOf: Array("T*\n".utf8))
                     if let s = operands.last?.stringValue {
-                        if let rw = rewriteShow(s.bytes, &state, regions) { out.append(contentsOf: rw); removed = true }
+                        if let rw = rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                         else { emit([operands.last!], "Tj") }
                     }
                 case "\"":
@@ -172,7 +184,7 @@ public struct ContentExcisor: Sendable {
                         state.translateText(0, -state.leading)
                         out.append(contentsOf: Array("T*\n".utf8))
                         if let s = operands.last?.stringValue {
-                            if let rw = rewriteShow(s.bytes, &state, regions) { out.append(contentsOf: rw); removed = true }
+                            if let rw = rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                             else { emit([operands.last!], "Tj") }
                         }
                     } else { emit(operands, op) }
@@ -180,7 +192,7 @@ public struct ContentExcisor: Sendable {
                 // XObjects
                 case "Do":
                     if let name = operands.last?.nameValue {
-                        try await handleDo(name.string, resources, state, regions, depth, formFlag)
+                        try await handleDo(name.string, resources, state, regions, depth, ctx)
                     }
                     emit(operands, op)
 
@@ -197,23 +209,25 @@ public struct ContentExcisor: Sendable {
     // MARK: - text rewriting
 
     /// Rewrite a single shown byte run; returns nil (advancing state) if nothing was removed.
-    private func rewriteShow(_ bytes: [UInt8], _ state: inout ExcisionState, _ regions: [RedactionRegion]) -> [UInt8]? {
+    private func rewriteShow(_ bytes: [UInt8], _ state: inout ExcisionState, _ regions: [RedactionRegion],
+                             _ ctx: ExcisionContext) -> [UInt8]? {
         guard let font = state.font, state.fontSize != 0 else { return nil }
         var builder = TJBuilder()
         for code in font.decodeCodes(bytes) {
-            classify(code, font: font, &state, regions, &builder)
+            classify(code, font: font, &state, regions, &builder, ctx)
         }
         guard builder.removedAny else { return nil }
         return builder.serialized()
     }
 
     /// Rewrite a `TJ` array; returns nil (advancing state) if nothing was removed.
-    private func rewriteTJ(_ array: [PDFObject], _ state: inout ExcisionState, _ regions: [RedactionRegion]) -> [UInt8]? {
+    private func rewriteTJ(_ array: [PDFObject], _ state: inout ExcisionState, _ regions: [RedactionRegion],
+                           _ ctx: ExcisionContext) -> [UInt8]? {
         guard let font = state.font, state.fontSize != 0 else { return nil }
         var builder = TJBuilder()
         for element in array {
             if let s = element.stringValue {
-                for code in font.decodeCodes(s.bytes) { classify(code, font: font, &state, regions, &builder) }
+                for code in font.decodeCodes(s.bytes) { classify(code, font: font, &state, regions, &builder, ctx) }
             } else if let adj = element.doubleValue {
                 builder.carryAdjustment(adj)
                 state.advanceAdjustment(adj)
@@ -223,9 +237,10 @@ public struct ContentExcisor: Sendable {
         return builder.serialized()
     }
 
-    /// Classify one glyph as kept or removed, append to the builder, and advance the text matrix.
+    /// Classify one glyph as kept or removed, append to the builder, advance the text matrix, and
+    /// (when removed) record its Unicode for the recoverable-text scrub (§17.4.3).
     private func classify(_ code: CharCode, font: PDFFont, _ state: inout ExcisionState,
-                          _ regions: [RedactionRegion], _ builder: inout TJBuilder) {
+                          _ regions: [RedactionRegion], _ builder: inout TJBuilder, _ ctx: ExcisionContext) {
         let w0 = font.width(for: code)
         let trm = state.textRenderMatrix
         let origin = trm.transform(PDFPoint(0, 0))
@@ -240,6 +255,7 @@ public struct ContentExcisor: Sendable {
                 if code.byteLength == 1, code.value == 32 { adv += state.wordSpacing / state.fontSize }
             }
             builder.remove(advance: -1000 * adv)
+            ctx.removedText += String(String.UnicodeScalarView(font.unicodeScalars(for: code)))
         } else {
             builder.keep(codeBytes(code))
         }
@@ -249,7 +265,7 @@ public struct ContentExcisor: Sendable {
     // MARK: - form XObject recursion
 
     private func handleDo(_ name: String, _ resources: PDFDictionary?, _ state: ExcisionState,
-                          _ regions: [RedactionRegion], _ depth: Int, _ formFlag: RemovalFlag) async throws {
+                          _ regions: [RedactionRegion], _ depth: Int, _ ctx: ExcisionContext) async throws {
         guard let xobjects = await store.dereference(resources?[PDFName("XObject")] ?? .null).dictionaryValue,
               let ref = xobjects[PDFName(name)]?.referenceValue,
               let stream = await store.resolve(ref).streamValue else { return }
@@ -263,9 +279,9 @@ public struct ContentExcisor: Sendable {
         let formResources = await store.dereference(stream.dictionary[PDFName("Resources")] ?? .null).dictionaryValue ?? resources
         let (rewritten, removed) = try await excise(content: content, resources: formResources,
                                                     initialCTM: formCTM, regions: regions,
-                                                    depth: depth + 1, formFlag: formFlag)
+                                                    depth: depth + 1, ctx: ctx)
         guard removed else { return }
-        formFlag.changed = true
+        ctx.formChanged = true
         // Rewrite the form stream in place, uncompressed (clone-on-write for shared forms deferred).
         var dict = stream.dictionary
         dict.set(PDFName("Filter"), .null)

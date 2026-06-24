@@ -62,8 +62,9 @@ private func occurrences(of needle: String, in bytes: [UInt8]) -> Int {
     let store = await storeWithContent(
         "BT /F1 12 Tf 100 700 Td (SECRET) Tj ET BT /F1 12 Tf 100 100 Td (KEEP) Tj ET")
     let region = RedactionRegion(rect: PDFRectangle(x0: 90, y0: 695, x1: 250, y1: 715))
-    let changed = try await ContentExcisor(store: store).excisePage(at: 0, regions: [region])
-    #expect(changed)
+    let result = try await ContentExcisor(store: store).excisePage(at: 0, regions: [region])
+    #expect(result.changed)
+    #expect(result.removedText == "SECRET")
 
     let out = try await currentContent(store)
     #expect(occurrences(of: "SECRET", in: out) == 0)
@@ -83,8 +84,8 @@ private func occurrences(of needle: String, in bytes: [UInt8]) -> Int {
 @Test func exciseLeavesUnmarkedPageUntouched() async throws {
     let store = await storeWithContent("BT /F1 12 Tf 100 100 Td (HELLO) Tj ET")
     let region = RedactionRegion(rect: PDFRectangle(x0: 0, y0: 700, x1: 50, y1: 750))  // empty area
-    let changed = try await ContentExcisor(store: store).excisePage(at: 0, regions: [region])
-    #expect(!changed)
+    let result = try await ContentExcisor(store: store).excisePage(at: 0, regions: [region])
+    #expect(!result.changed)
     let out = try await currentContent(store)
     #expect(occurrences(of: "HELLO", in: out) == 1)
 }
