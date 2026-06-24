@@ -5,9 +5,13 @@ implementation is built from. Every chapter must clear the clean-room review gat
 (see [`../docs/clean-room-governance.md`](../docs/clean-room-governance.md) §5) and be
 promoted by the Gatekeeper, with an entry in [`../docs/attestation-log.md`](../docs/attestation-log.md).
 
-> **Status:** skeleton only. The chapter files below are placeholders with their scope,
-> normative references, and the Apple-coverage tier for that domain. No chapter has been
-> authored and promoted through the gate yet.
+> **Status (2026-06-24):** the full spec is authored and independently reviewed (gates 2–3).
+> **17 chapters + both appendices (19 documents) are PROMOTED** into this directory: 00, 01,
+> 02, 03, 05, 07, 08, 09, 10, 12, 13, 15, 16, 18, 19, 20, 21, A, B. **Five chapters passed gates 2–3 but are
+> HELD on the restricted side pending a human counsel spot-check (governance §5 gate 5)** and
+> have not yet crossed the wall: **04** (parser/recovery), **06** (encryption), **11**
+> (fonts/CMap), **14** (structured-text reading order), **17** (redaction). They will be
+> promoted here once counsel signs off. See [`../docs/attestation-log.md`](../docs/attestation-log.md).
 
 ## House style
 - Every normative statement cites a public standard by clause (ISO 32000 §-numbers, Unicode
