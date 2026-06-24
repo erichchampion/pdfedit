@@ -25,6 +25,7 @@ let package = Package(
         .library(name: "PDFColor", targets: ["PDFColor"]),
         .library(name: "PDFFonts", targets: ["PDFFonts"]),
         .library(name: "PDFContent", targets: ["PDFContent"]),
+        .library(name: "PDFText", targets: ["PDFText"]),
     ],
     targets: [
         // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
@@ -59,6 +60,11 @@ let package = Package(
         .target(
             name: "PDFContent",
             dependencies: ["PDFCore", "PDFColor", "PDFFonts"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .target(
+            name: "PDFText",
+            dependencies: ["PDFContent", "PDFCore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
@@ -97,6 +103,11 @@ let package = Package(
         .testTarget(
             name: "PDFContentTests",
             dependencies: ["PDFContent", "PDFCore", "PDFColor", "PDFFonts"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "PDFTextTests",
+            dependencies: ["PDFText", "PDFContent", "PDFCore", "PDFColor", "PDFFonts"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
