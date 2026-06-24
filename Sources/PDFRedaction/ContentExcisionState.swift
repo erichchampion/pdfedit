@@ -7,6 +7,7 @@
 
 import PDFCore
 import PDFFonts
+import PDFContent
 
 struct ExcisionState {
     var ctm: PDFMatrix = .identity
@@ -22,22 +23,22 @@ struct ExcisionState {
 
     /// The text rendering matrix for the current glyph (§9.4.4): font scale · Tm · CTM.
     var textRenderMatrix: PDFMatrix {
-        PDFMatrix(fontSize * horizontalScale, 0, 0, fontSize, 0, textRise)
-            .concatenating(textMatrix).concatenating(ctm)
+        TextAdvance.renderMatrix(fontSize: fontSize, horizontalScale: horizontalScale,
+                                 textRise: textRise, textMatrix: textMatrix, ctm: ctm)
     }
 
     /// Advance the text matrix past one glyph exactly as the interpreter does (§9.4.4), so state
     /// stays correct regardless of whether the glyph is kept or removed.
     mutating func advance(_ code: CharCode, width w0: Double) {
-        var tx = w0 * fontSize + charSpacing
-        if code.byteLength == 1, code.value == 32 { tx += wordSpacing }
-        tx *= horizontalScale
+        let tx = TextAdvance.glyphAdvance(width: w0, fontSize: fontSize, charSpacing: charSpacing,
+                                          wordSpacing: wordSpacing, horizontalScale: horizontalScale,
+                                          isSingleByteSpace: code.byteLength == 1 && code.value == 32)
         textMatrix = PDFMatrix(1, 0, 0, 1, tx, 0).concatenating(textMatrix)
     }
 
     /// Advance the text matrix by a `TJ` numeric adjustment (§9.4.4).
     mutating func advanceAdjustment(_ adj: Double) {
-        let tx = -adj / 1000 * fontSize * horizontalScale
+        let tx = TextAdvance.adjustmentAdvance(adj, fontSize: fontSize, horizontalScale: horizontalScale)
         textMatrix = PDFMatrix(1, 0, 0, 1, tx, 0).concatenating(textMatrix)
     }
 

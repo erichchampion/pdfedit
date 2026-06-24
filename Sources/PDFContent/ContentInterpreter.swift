@@ -174,8 +174,8 @@ final class Machine {
         var glyphs: [TextRun.Glyph] = []
         for code in font.decodeCodes(bytes) {
             let w0 = font.width(for: code)
-            let trm = PDFMatrix(state.fontSize * state.horizontalScale, 0, 0, state.fontSize, 0, state.textRise)
-                .concatenating(state.textMatrix).concatenating(state.ctm)
+            let trm = TextAdvance.renderMatrix(fontSize: state.fontSize, horizontalScale: state.horizontalScale,
+                                               textRise: state.textRise, textMatrix: state.textMatrix, ctm: state.ctm)
             let origin = trm.transform(PDFPoint(0, 0))
             let scalars = font.unicodeScalars(for: code)
             glyphs.append(TextRun.Glyph(
@@ -184,9 +184,9 @@ final class Machine {
                 origin: origin,
                 advance: w0,
                 fontSize: state.fontSize))
-            var tx = w0 * state.fontSize + state.charSpacing
-            if code.byteLength == 1, code.value == 32 { tx += state.wordSpacing }
-            tx *= state.horizontalScale
+            let tx = TextAdvance.glyphAdvance(width: w0, fontSize: state.fontSize, charSpacing: state.charSpacing,
+                                              wordSpacing: state.wordSpacing, horizontalScale: state.horizontalScale,
+                                              isSingleByteSpace: code.byteLength == 1 && code.value == 32)
             state.textMatrix = PDFMatrix(1, 0, 0, 1, tx, 0).concatenating(state.textMatrix)
         }
         if !glyphs.isEmpty {
@@ -199,7 +199,7 @@ final class Machine {
             if let s = element.stringValue {
                 emitText(s.bytes, &state)
             } else if let adj = element.doubleValue {
-                let tx = -adj / 1000 * state.fontSize * state.horizontalScale
+                let tx = TextAdvance.adjustmentAdvance(adj, fontSize: state.fontSize, horizontalScale: state.horizontalScale)
                 state.textMatrix = PDFMatrix(1, 0, 0, 1, tx, 0).concatenating(state.textMatrix)
             }
         }
