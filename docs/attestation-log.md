@@ -207,8 +207,44 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; assembly mechanics stated as observable results only." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
-<!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text grouping).
-     Still to draft+review under counsel hold: Ch 06 (encryption), Ch 11 (fonts/CMap), Ch 17 (redaction, RECOMMENDED). -->
+### Chapter 17 — Redaction: Secure Removal of Content  [HELD — counsel-recommended]
+- Date: 2026-06-23 (reviewed 2026-06-24, re-run after an interrupted first attempt)
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no region-intersection test, content-excision procedure, glyph-hit test, clip/coverage rule, threshold, or image-resampling loop — each mechanism named only to disclaim it)
+- Gatekeeper sign-off: **NOT PROMOTED — READY pending counsel spot-check (RECOMMENDED, gate 5)**. Security-critical secure-removal chapter; held until counsel confirms no excision/intersection heuristic was transcribed.
+- Counsel spot-check: RECOMMENDED — pending
+- Source citations: ISO 32000-2 §12.5.6.23 (redaction annotation) + §12.5.2/.3, §8.10.1, §7.8.2, §8.5, §8.9, §9.4, §9.10, §14.6–14.7, §7.7.2, §7.5.6; project Ch 08/09/12/13/14/15 + Ch 19 §19.5; governance §6
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; every removal requirement stated as problem + observable security outcome (negative byte/extraction/render test), mechanism left to the implementation." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none (held)
+
+### Chapter 20 — Public Swift API Surface
+- Date: 2026-06-23 (reviewed 2026-06-24)
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; does NOT mirror MuPDF's API — no MuPDF type/function names, organization, or signature patterns; idiomatic Swift from the project's own chapters)
+- Gatekeeper sign-off: PROMOTED — `spec/20-public-api.md` (+ citations)
+- Counsel spot-check: N/A (original Swift API design)
+- Source citations: project chapters 02–19 (their observable requirements), governance §3/§6, Swift/Apple platform conventions by name (not ISO clauses, not MuPDF)
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; the API is designed from the project's own observable requirements and Swift idiom, explicitly not modeled on MuPDF's API." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 21 — Conformance and Black-Box Test Methodology
+- Date: 2026-06-23 (reviewed 2026-06-24)
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; MuPDF appears only as an opaque output oracle, not transcribed)
+- Gatekeeper sign-off: PROMOTED — `spec/21-conformance.md` (+ citations)
+- Counsel spot-check: N/A (methodology from governance §6)
+- Source citations: governance §3/§5/§6/§7; project chapters 02–20; named oracles (PDFKit/CGPDF, Acrobat, pdf.js); UAX #9/#15
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; methodology built from governance §6 and the project chapters' observable requirements." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+<!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text
+     grouping), Ch 17 (redaction, RECOMMENDED). Still to draft+review under counsel hold:
+     Ch 06 (encryption), Ch 11 (fonts/CMap). -->
 <!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
      §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo. Clusters C1 (05/07/19), rest of C2
-     (08/09), C3 (12/13), and C4 (15/16/18) required no fixes. -->
+     (08/09), C3 (12/13), C4 (15/16/18), and C5 (20/21) required no fixes.
+     NOTE: the C5 review was re-run on 2026-06-24 after the first attempt was interrupted
+     (session limit) before recording a verdict; 20/21 verified READY before promotion. -->
