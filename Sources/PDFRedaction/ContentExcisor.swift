@@ -161,19 +161,19 @@ public struct ContentExcisor: Sendable {
 
                 // text showing — rewrite to drop in-region glyphs
                 case "Tj":
-                    if let s = operands.last?.stringValue, let rw = rewriteShow(s.bytes, &state, regions, ctx) {
+                    if let s = operands.last?.stringValue, let rw = try rewriteShow(s.bytes, &state, regions, ctx) {
                         out.append(contentsOf: rw); removed = true
                     } else { emit(operands, op) }
                 case "TJ":
                     if let arr = operands.last?.arrayValue {
-                        if let rw = rewriteTJ(arr, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
+                        if let rw = try rewriteTJ(arr, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                         else { emit(operands, op) }
                     } else { emit(operands, op) }
                 case "'":
                     state.translateText(0, -state.leading)
                     out.append(contentsOf: Array("T*\n".utf8))
                     if let s = operands.last?.stringValue {
-                        if let rw = rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
+                        if let rw = try rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                         else { emit([operands.last!], "Tj") }
                     }
                 case "\"":
@@ -184,7 +184,7 @@ public struct ContentExcisor: Sendable {
                         state.translateText(0, -state.leading)
                         out.append(contentsOf: Array("T*\n".utf8))
                         if let s = operands.last?.stringValue {
-                            if let rw = rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
+                            if let rw = try rewriteShow(s.bytes, &state, regions, ctx) { out.append(contentsOf: rw); removed = true }
                             else { emit([operands.last!], "Tj") }
                         }
                     } else { emit(operands, op) }
@@ -208,10 +208,11 @@ public struct ContentExcisor: Sendable {
 
     // MARK: - text rewriting
 
-    /// Rewrite a single shown byte run; returns nil (advancing state) if nothing was removed.
+    /// Rewrite a single shown byte run; returns nil (advancing state) if nothing was removed. Throws
+    /// (fails closed, §17.4.1) when the font cannot be resolved — we cannot prove the text is removed.
     private func rewriteShow(_ bytes: [UInt8], _ state: inout ExcisionState, _ regions: [RedactionRegion],
-                             _ ctx: ExcisionContext) -> [UInt8]? {
-        guard let font = state.font, state.fontSize != 0 else { return nil }
+                             _ ctx: ExcisionContext) throws -> [UInt8]? {
+        let font = try requireFont(state)
         var builder = TJBuilder()
         for code in font.decodeCodes(bytes) {
             classify(code, font: font, &state, regions, &builder, ctx)
@@ -220,10 +221,11 @@ public struct ContentExcisor: Sendable {
         return builder.serialized()
     }
 
-    /// Rewrite a `TJ` array; returns nil (advancing state) if nothing was removed.
+    /// Rewrite a `TJ` array; returns nil (advancing state) if nothing was removed. Fails closed when
+    /// the font cannot be resolved (§17.4.1).
     private func rewriteTJ(_ array: [PDFObject], _ state: inout ExcisionState, _ regions: [RedactionRegion],
-                           _ ctx: ExcisionContext) -> [UInt8]? {
-        guard let font = state.font, state.fontSize != 0 else { return nil }
+                           _ ctx: ExcisionContext) throws -> [UInt8]? {
+        let font = try requireFont(state)
         var builder = TJBuilder()
         for element in array {
             if let s = element.stringValue {
@@ -235,6 +237,16 @@ public struct ContentExcisor: Sendable {
         }
         guard builder.removedAny else { return nil }
         return builder.serialized()
+    }
+
+    /// The current font, or a fail-closed error: redaction cannot decode/remove text without it
+    /// (§17.4.1). A zero `/fontSize` is fine — glyphs still classify and zero-size text is still
+    /// removed; only a missing/unparseable font is unsafe.
+    private func requireFont(_ state: ExcisionState) throws -> PDFFont {
+        guard let font = state.font else {
+            throw PDFError.unsupportedFeature("redaction: cannot resolve font for text on a marked page")
+        }
+        return font
     }
 
     /// Classify one glyph as kept or removed, append to the builder, advance the text matrix, and
