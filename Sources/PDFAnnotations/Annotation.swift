@@ -21,7 +21,8 @@ public enum AnnotationColor: Sendable, Equatable {
         }
     }
 
-    var rgb: RGB {
+    /// The device-RGB equivalent (DeviceGray/DeviceCMYK converted per §10.x).
+    public var rgb: RGB {
         switch self {
         case let .gray(g): return RGB(g, g, g)
         case let .rgb(c): return c
