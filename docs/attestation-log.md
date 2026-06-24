@@ -240,9 +240,53 @@ Template:
 - MuPDF-exposure attestation: "Contains no MuPDF code or expression; methodology built from governance §6 and the project chapters' observable requirements." — signed: spec team agent; independently verified (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
+### Chapter 00 — Scope, Conformance Model, and Normative References
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3)
+- Gatekeeper sign-off: PROMOTED — `spec/00-scope.md`
+- Counsel spot-check: N/A (front matter)
+- Source citations: spec README chapter index + Apple-coverage tiers; governance doc; normative-reference set by name (ISO 32000-1/-2, Unicode + UAX #9/#15, RFC 1950/1951, ITU-T T.4/T.6/T.81/T.88, ISO/IEC 10918/14492/15444, ICC, PNG, FIPS-197, OpenType/TrueType)
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; scope/conformance/refs compiled from the project's own structure and public standards." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 01 — Terminology and Citation Conventions
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3)
+- Gatekeeper sign-off: PROMOTED — `spec/01-terminology.md`
+- Counsel spot-check: N/A (front matter)
+- Source citations: governance §3–§5; spec README house style; the spec's own structure
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; conformance keywords and conventions defined from the governance doc and the spec's own style." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Appendix A — ISO 32000 Clause Cross-Reference Index
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2; 12 diverse clauses spot-checked against citation stubs, all matched; 180-entry count independently re-counted)
+- Cleanliness reviewer: independent review agent — PASS (gate 3)
+- Gatekeeper sign-off: PROMOTED — `spec/A-clause-index.md`
+- Counsel spot-check: N/A (reference aggregation)
+- Source citations: mechanically aggregated from all per-chapter citation stubs (180 distinct clause entries)
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; a faithful aggregation of the spec's own clause citations." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Appendix B — Glossary
+- Date: 2026-06-24
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; every term a standard-defined PDF/Unicode/codec term, no MuPDF coinages)
+- Gatekeeper sign-off: PROMOTED — `spec/B-glossary.md`
+- Counsel spot-check: N/A (reference)
+- Source citations: standard-defined terms across the spec, with defining-chapter pointers
+- MuPDF-exposure attestation: "Contains no MuPDF code or expression; standard-defined terminology only." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
 <!-- HELD pending human counsel spot-check (gate 5): Ch 04 (recovery), Ch 14 (structured-text
-     grouping), Ch 17 (redaction, RECOMMENDED). Still to draft+review under counsel hold:
-     Ch 06 (encryption), Ch 11 (fonts/CMap). -->
+     grouping), Ch 17 (redaction, RECOMMENDED). Drafting in progress under counsel hold:
+     Ch 06 (encryption, REQUIRED), Ch 11 (fonts/CMap, REQUIRED). -->
 <!-- Review fixes applied before promotion: Ch02 §2.8 enum count; clause re-anchorings (Ch02
      §2.3.3, Ch03 §3.9.1); Ch10 §10.10 operator-list typo. Clusters C1 (05/07/19), rest of C2
      (08/09), C3 (12/13), C4 (15/16/18), and C5 (20/21) required no fixes.
