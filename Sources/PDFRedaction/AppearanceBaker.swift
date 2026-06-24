@@ -9,6 +9,7 @@
 import PDFCore
 import PDFColor
 import PDFContent
+import PDFFonts
 
 public struct AppearanceBaker: Sendable {
     let store: PDFObjectStore
@@ -71,11 +72,7 @@ public struct AppearanceBaker: Sendable {
         var resources = await store.dereference(page[PDFName("Resources")] ?? .null).dictionaryValue ?? PDFDictionary()
         var fonts = await store.dereference(resources[PDFName("Font")] ?? .null).dictionaryValue ?? PDFDictionary()
         if fonts[Self.fontName] == nil {
-            let fontRef = await store.add(.dictionary(PDFDictionary(pairs: [
-                (PDFName("Type"), .name(PDFName("Font"))), (PDFName("Subtype"), .name(PDFName("Type1"))),
-                (PDFName("BaseFont"), .name(PDFName("Helvetica"))),
-                (PDFName("Encoding"), .name(PDFName("WinAnsiEncoding"))),
-            ])))
+            let fontRef = await store.add(.dictionary(StandardFonts.helveticaDictionary()))
             fonts.set(Self.fontName, .reference(fontRef))
             resources.set(PDFName("Font"), .dictionary(fonts))
             page.set(PDFName("Resources"), .dictionary(resources))

@@ -92,12 +92,12 @@ let package = Package(
         ),
         .target(
             name: "PDFAnnotations",
-            dependencies: ["PDFCore", "PDFContent", "PDFColor"],
+            dependencies: ["PDFCore", "PDFContent", "PDFColor", "PDFFonts"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(
             name: "PDFForms",
-            dependencies: ["PDFAnnotations", "PDFContent", "PDFColor", "PDFCore"],
+            dependencies: ["PDFAnnotations", "PDFContent", "PDFColor", "PDFCore", "PDFFonts"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .target(

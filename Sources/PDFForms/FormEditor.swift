@@ -7,6 +7,7 @@
 import PDFCore
 import PDFColor
 import PDFContent
+import PDFFonts
 import PDFAnnotations
 
 public struct FormEditor: Sendable {
@@ -89,11 +90,7 @@ public struct FormEditor: Sendable {
         gen.endText()
         let bytes = (try? gen.bytes()) ?? []
 
-        let fontRef = await store.add(.dictionary(PDFDictionary(pairs: [
-            (PDFName("Type"), .name(PDFName("Font"))),
-            (PDFName("Subtype"), .name(PDFName("Type1"))),
-            (PDFName("BaseFont"), .name(PDFName("Helvetica"))),
-        ])))
+        let fontRef = await store.add(.dictionary(StandardFonts.helveticaDictionary()))
         var resources = PDFDictionary()
         resources.set(PDFName("Font"), .dictionary(PDFDictionary(pairs: [(da.fontName, .reference(fontRef))])))
         return await AppearanceBuilder.makeFormXObject(bbox: bbox, content: bytes, resources: resources, in: store)

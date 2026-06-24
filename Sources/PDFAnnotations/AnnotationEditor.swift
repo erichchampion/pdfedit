@@ -8,6 +8,7 @@
 import PDFCore
 import PDFColor
 import PDFContent
+import PDFFonts
 
 public struct AnnotationEditor: Sendable {
     let store: PDFObjectStore
@@ -144,11 +145,7 @@ public struct AnnotationEditor: Sendable {
                 }
             }
         case let .freeText(text, size, color):
-            let fontRef = await store.add(.dictionary(PDFDictionary(pairs: [
-                (PDFName("Type"), .name(PDFName("Font"))),
-                (PDFName("Subtype"), .name(PDFName("Type1"))),
-                (PDFName("BaseFont"), .name(PDFName("Helvetica"))),
-            ])))
+            let fontRef = await store.add(.dictionary(StandardFonts.helveticaDictionary()))
             resources.set(PDFName("Font"), .dictionary(PDFDictionary(pairs: [(PDFName("Helv"), .reference(fontRef))])))
             gen.beginText()
             gen.setFillRGB(color)
