@@ -14,7 +14,7 @@ public struct AppearanceBaker: Sendable {
     let store: PDFObjectStore
     public init(store: PDFObjectStore) { self.store = store }
 
-    private static let fontName = PDFName("RedactHelv")
+    private static let fontName = PDFName("OvlHelv")
 
     /// Append every mark's post-apply appearance to a page's content.
     public func bake(_ marks: [RedactionMark], onPageAt index: Int) async throws {
