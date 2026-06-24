@@ -27,10 +27,11 @@ public struct RedactionApplier: Sendable {
         for ref in markRefs { if let m = await readMark(ref) { marks.append(m) } }
         let regions = marks.map(\.region)
 
-        // 1. Excise text + vectors (recursing into form XObjects); collect removed text (§17.4.1/§17.4.3).
+        // 1. Excise text + vectors (recursing into form XObjects); collect removed text + image
+        //    placements in one content pass (§17.4.1/§17.4.2/§17.4.3).
         let result = try await ContentExcisor(store: store).excisePage(at: index, regions: regions)
-        // 2. Clear overlapped image samples (§17.4.2).
-        try await ImageResampler(store: store).resamplePage(at: index, regions: regions)
+        // 2. Clear overlapped image samples using the placements found above (no second interpret).
+        try await ImageResampler(store: store).resample(placements: result.imagePlacements, regions: regions)
         // 3. Scrub recoverable text + metadata the removed glyphs seeded (§17.4.3).
         if !result.removedText.isEmpty {
             await RecoverableTextScrub(store: store).scrub(removedText: [result.removedText],

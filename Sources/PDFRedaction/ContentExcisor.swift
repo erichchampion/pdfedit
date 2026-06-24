@@ -11,18 +11,29 @@
 import PDFCore
 import PDFFonts
 
+/// An image placement discovered during the content walk: its resource name, the device-space CTM
+/// mapping the unit square to the page, and the owning object whose `/Resources` carries the name
+/// (the page leaf, or a cloned form). Lets the ImageResampler avoid a second full content pass (§17.4.2).
+public struct ImagePlacement: Sendable {
+    public let name: String
+    public let ctm: PDFMatrix
+    public let ownerRef: PDFRef?
+}
+
 /// Accumulates results that span the form-recursion (a reference so nested excisions can report a
-/// rewritten form and contribute to the removed-text set used by the metadata/structure scrub).
+/// rewritten form, contribute to the removed-text set, and collect image placements in one pass).
 final class ExcisionContext: @unchecked Sendable {
     var formChanged = false
     var removedText = ""
+    var imagePlacements: [ImagePlacement] = []
 }
 
-/// The outcome of excising one page (spec §17.4.3 needs the removed text for the recoverable-text
-/// scrub).
+/// The outcome of excising one page: whether anything changed, the removed text (for the §17.4.3
+/// scrub), and the image placements (for the §17.4.2 resampler — collected in the same pass).
 public struct ExcisionResult: Sendable {
     public var changed: Bool
     public var removedText: String
+    public var imagePlacements: [ImagePlacement]
 }
 
 public struct ContentExcisor: Sendable {
@@ -37,7 +48,7 @@ public struct ContentExcisor: Sendable {
         guard !regions.isEmpty,
               let pageRef = await store.pageReference(at: index),
               let page = await store.resolve(pageRef).dictionaryValue else {
-            return ExcisionResult(changed: false, removedText: "")
+            return ExcisionResult(changed: false, removedText: "", imagePlacements: [])
         }
 
         // Redaction must fail closed: an undecodable content stream MUST NOT be silently skipped
@@ -61,7 +72,8 @@ public struct ContentExcisor: Sendable {
             updated.set(PDFName("Contents"), .reference(newRef))
             await store.define(pageRef, .dictionary(updated))
         }
-        return ExcisionResult(changed: topRemoved || ctx.formChanged, removedText: ctx.removedText)
+        return ExcisionResult(changed: topRemoved || ctx.formChanged, removedText: ctx.removedText,
+                              imagePlacements: ctx.imagePlacements)
     }
 
     // MARK: - the rewriting pass
@@ -279,7 +291,13 @@ public struct ContentExcisor: Sendable {
         guard let xobjects = await store.dereference(resources?[PDFName("XObject")] ?? .null).dictionaryValue,
               let ref = xobjects[PDFName(name)]?.referenceValue,
               let stream = await store.resolve(ref).streamValue else { return }
-        guard stream.dictionary[PDFName("Subtype")]?.nameValue?.string == "Form" else { return }  // images: ImageResampler
+        let subtype = stream.dictionary[PDFName("Subtype")]?.nameValue?.string
+        if subtype == "Image" {
+            // Record the placement for the ImageResampler — collected in this single content pass.
+            ctx.imagePlacements.append(ImagePlacement(name: name, ctm: state.ctm, ownerRef: ownerRef))
+            return
+        }
+        guard subtype == "Form" else { return }
         // Fail closed on an undecodable form (§17.6), surfaced as a typed PDFError (§20.11).
         let content: [UInt8]
         do { content = try await store.decodedData(of: stream) }

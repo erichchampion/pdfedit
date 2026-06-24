@@ -17,45 +17,63 @@ public struct ImageResampler: Sendable {
     let store: PDFObjectStore
     public init(store: PDFObjectStore) { self.store = store }
 
-    /// Clear the samples of every image on page `index` that a region overlaps. Returns true if any
-    /// image was modified.
+    /// Clear the samples of every image on page `index` that a region overlaps (interprets the page
+    /// to find placements; the redaction pipeline uses `resample(placements:)` to avoid this second
+    /// pass). Returns true if any image was modified.
     @discardableResult
     public func resamplePage(at index: Int, regions: [RedactionRegion]) async throws -> Bool {
         guard !regions.isEmpty,
               let pageRef = await store.pageReference(at: index),
               let page = await store.resolve(pageRef).dictionaryValue else { return false }
-        let resources = await store.effectivePageAttributes(page).resources
-
-        // Image placements (name → device CTMs) from the display list — covers images nested in form
-        // XObjects too, with the form matrix already folded into the CTM (§8.10.1).
         let list = try await ContentInterpreter(store: store).interpretPage(page)
-        var placements: [String: [PDFMatrix]] = [:]
+        var placements: [ImagePlacement] = []
         for item in list.items {
             if case let .image(inv) = item, let name = inv.resourceName, !inv.isInline {
-                placements[name, default: []].append(inv.ctm)
+                placements.append(ImagePlacement(name: name, ctm: inv.ctm, ownerRef: pageRef))
             }
         }
-        guard !placements.isEmpty else { return false }
+        return try await resample(placements: placements, regions: regions)
+    }
+
+    /// Clear the covered samples of the images at the given placements (collected during the excisor's
+    /// single content pass). Each image is cloned-on-write and its name rebound on its owner (§18.5).
+    @discardableResult
+    public func resample(placements: [ImagePlacement], regions: [RedactionRegion]) async throws -> Bool {
+        guard !regions.isEmpty, !placements.isEmpty else { return false }
+        // Group placements of the same image (under one owner) so overlapping clears combine.
+        var order: [String] = []
+        var groups: [String: (owner: PDFRef?, name: String, ctms: [PDFMatrix])] = [:]
+        for p in placements {
+            let key = "\(p.ownerRef?.number ?? -1):\(p.name)"
+            if groups[key] == nil { groups[key] = (p.ownerRef, p.name, []); order.append(key) }
+            groups[key]?.ctms.append(p.ctm)
+        }
 
         var anyChanged = false
-        for (name, matrices) in placements {
-            guard let ref = await resolveXObjectRef(name, resources),
+        for key in order {
+            let g = groups[key]!
+            guard let ownerRef = g.owner,
+                  let (ref, ownerResources) = await xobject(g.name, inOwner: ownerRef),
                   let stream = await store.resolve(ref).streamValue,
                   stream.dictionary[PDFName("Subtype")]?.nameValue?.string == "Image" else { continue }
-            // Clone-on-write: the resampled image is a NEW object; rebind the page's resource name to
-            // it so an image shared by another page is never altered (§18.5).
-            if let newRef = try await resample(stream: stream, resources: resources,
-                                               matrices: matrices, regions: regions) {
-                await rebindXObject(PDFName(name), to: newRef, inOwner: pageRef, store: store)
+            if let newRef = try await resample(stream: stream, resources: ownerResources,
+                                               matrices: g.ctms, regions: regions) {
+                await rebindXObject(PDFName(g.name), to: newRef, inOwner: ownerRef, store: store)
                 anyChanged = true
             }
         }
         return anyChanged
     }
 
-    private func resolveXObjectRef(_ name: String, _ resources: PDFDictionary?) async -> PDFRef? {
-        let xobjects = await store.dereference(resources?[PDFName("XObject")] ?? .null).dictionaryValue
-        return xobjects?[PDFName(name)]?.referenceValue
+    /// The image XObject ref bound to `name` in an owner's `/Resources /XObject`, plus that owner's
+    /// resources (for the image decoder's colour-space lookup). The owner is a page dict or form stream.
+    private func xobject(_ name: String, inOwner ownerRef: PDFRef) async -> (PDFRef, PDFDictionary?)? {
+        let obj = await store.resolve(ownerRef)
+        guard let dict = obj.dictionaryValue ?? obj.streamValue?.dictionary else { return nil }
+        let resources = await store.dereference(dict[PDFName("Resources")] ?? .null).dictionaryValue
+        guard let ref = await store.dereference(resources?[PDFName("XObject")] ?? .null)
+            .dictionaryValue?[PDFName(name)]?.referenceValue else { return nil }
+        return (ref, resources)
     }
 
     /// Decode the image, zero every sample whose device point lies in a region under any placement, and
