@@ -28,15 +28,8 @@ public struct ContentInterpreter: Sendable {
 
     /// Decode and interpret a page's /Contents against its /Resources (§7.8.2).
     public func interpretPage(_ page: PDFDictionary, initialCTM: PDFMatrix = .identity) async throws -> DisplayList {
-        var content = [UInt8]()
-        let contentsObj = await store.dereference(page[PDFName("Contents")] ?? .null)
-        let streams = contentsObj.arrayValue ?? [page[PDFName("Contents")] ?? .null]
-        for s in streams {
-            if let data = try? await store.decodedData(of: s) {
-                content.append(contentsOf: data)
-                content.append(0x0A)   // separate concatenated streams (§7.8.2)
-            }
-        }
+        // Best-effort rendering tolerates an undecodable stream (§7.8.2).
+        let content = try await store.decodedPageContent(of: page, tolerant: true)
         let resources = await store.dereference(page[PDFName("Resources")] ?? .null).dictionaryValue
         return try await run(content: content, resources: resources, initialCTM: initialCTM)
     }

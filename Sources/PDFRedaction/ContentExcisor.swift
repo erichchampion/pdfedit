@@ -40,14 +40,9 @@ public struct ContentExcisor: Sendable {
             return ExcisionResult(changed: false, removedText: "")
         }
 
-        var content = [UInt8]()
-        let contentsObj = await store.dereference(page[PDFName("Contents")] ?? .null)
-        let streams = contentsObj.arrayValue ?? [page[PDFName("Contents")] ?? .null]
-        for s in streams {
-            if let data = try? await store.decodedData(of: s) {
-                content.append(contentsOf: data); content.append(0x0A)
-            }
-        }
+        // Redaction must fail closed: an undecodable content stream MUST NOT be silently skipped
+        // (that would leave its content un-redacted, §17.6).
+        let content = try await store.decodedPageContent(of: page, tolerant: false)
         let resources = await store.effectivePageAttributes(page).resources
 
         let ctx = ExcisionContext()
@@ -282,7 +277,10 @@ public struct ContentExcisor: Sendable {
               let ref = xobjects[PDFName(name)]?.referenceValue,
               let stream = await store.resolve(ref).streamValue else { return }
         guard stream.dictionary[PDFName("Subtype")]?.nameValue?.string == "Form" else { return }  // images: ImageResampler
-        guard let content = try? await store.decodedData(of: stream) else { return }
+        // Fail closed on an undecodable form (§17.6), surfaced as a typed PDFError (§20.11).
+        let content: [UInt8]
+        do { content = try await store.decodedData(of: stream) }
+        catch { throw (error as? PDFError) ?? PDFError.malformed("redaction: form XObject could not be decoded") }
 
         var formCTM = state.ctm
         if let m = (stream.dictionary[PDFName("Matrix")]?.arrayValue).flatMap({ PDFMatrix(array: $0) }) {
