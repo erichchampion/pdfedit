@@ -94,6 +94,53 @@ private func minimalPDF() -> [UInt8] {
     #expect(await reopened.catalog()?[PDFName("Type")] == .name(PDFName("Catalog")))
 }
 
+@Test func sanitizingSaveRebuildsWithNoPrevAndVerifiesResidue() async throws {
+    // A from-scratch store with a content stream carrying a known byte sequence.
+    let store = PDFObjectStore()
+    let catalog = await store.allocate(), pages = await store.allocate()
+    let page = await store.allocate(), content = await store.allocate()
+    let secret = Array("SECRET".utf8)
+    await store.define(content, .stream(PDFStream(
+        dictionary: PDFDictionary([PDFName("Length"): .integer(Int64(secret.count))]), rawData: secret)))
+    await store.define(page, .dictionary(PDFDictionary(pairs: [
+        (PDFName("Type"), .name(PDFName("Page"))), (PDFName("Parent"), .reference(pages)),
+        (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(612), .integer(792)])),
+        (PDFName("Contents"), .reference(content)),
+    ])))
+    await store.define(pages, .dictionary(PDFDictionary(pairs: [
+        (PDFName("Type"), .name(PDFName("Pages"))),
+        (PDFName("Kids"), .array([.reference(page)])), (PDFName("Count"), .integer(1)),
+    ])))
+    await store.define(catalog, .dictionary(PDFDictionary(pairs: [
+        (PDFName("Type"), .name(PDFName("Catalog"))), (PDFName("Pages"), .reference(pages)),
+    ])))
+    var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
+    await store.setTrailer(trailer)
+
+    // A plain sanitizing save: single self-contained file, no /Prev chain (§19.5).
+    let bytes = try await PDFWriter.save(store, options: .sanitizing)
+    #expect(!PDFWriter.containsSubsequence(bytes, Array("/Prev".utf8)))
+    let reopened = try PDFObjectStore.open(bytes)
+    #expect(await reopened.pageCount() == 1)
+
+    // Verification pass: while the content is still present, asserting it as forbidden MUST throw.
+    do {
+        _ = try await PDFWriter.save(store, options: .sanitizing(forbiddenResidue: [secret]))
+        Issue.record("sanitizing save should have thrown on surviving residue")
+    } catch is PDFError {
+        // expected
+    }
+
+    // After excising the content, the sanitizing save with the same forbidden set succeeds and the
+    // bytes carry no residue.
+    await store.delete(content)
+    var p = await store.resolve(page).dictionaryValue!
+    p.set(PDFName("Contents"), .null)
+    await store.define(page, .dictionary(p))
+    let clean = try await PDFWriter.save(store, options: .sanitizing(forbiddenResidue: [secret]))
+    #expect(!PDFWriter.containsSubsequence(clean, secret))
+}
+
 @Test func streamRoundTripPreservesRawBytes() async throws {
     // A content stream's raw bytes must survive a full rewrite byte-for-byte (§2.6 rule 1).
     let store = PDFObjectStore()

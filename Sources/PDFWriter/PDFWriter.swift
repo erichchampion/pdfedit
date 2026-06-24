@@ -4,8 +4,11 @@
 // silently substituted because their guarantees differ (§19.2). Incremental save appends and keeps
 // the original bytes as a strict prefix (§19.3); full rewrite GCs to a single self-contained file
 // (§19.4). The garbage-collection/renumber method is the implementation's own (§19.4.1, governance
-// §3). Sanitizing save (§19.5) and encryption-on-write (§19.6) are deferred seams. No MuPDF source
-// was read or referenced.
+// §3). The sanitizing save (§19.5) is a full rewrite — which already rebuilds from store state with
+// no /Prev chain and no prior-version bytes — plus an explicit, non-substitutable contract and an
+// optional byte-residue verification pass (the no-residue property of §19.5 made observable). It is
+// the mode redaction apply (Ch 17 §17.6) requires. Encryption-on-write (§19.6) remains a deferred
+// seam. No MuPDF source was read or referenced.
 
 import Foundation
 import PDFCore
@@ -15,12 +18,24 @@ public struct SaveOptions: Sendable {
     public enum Mode: Sendable {
         case incremental                      // §19.3
         case fullRewrite                      // §19.4 (object-stream/xref-stream compaction TBD)
+        case sanitizing                       // §19.5 — full rewrite + no-residue contract
     }
     public var mode: Mode
-    public init(mode: Mode) { self.mode = mode }
+    /// Known removed-content byte sequences a `.sanitizing` save MUST NOT leave in the output
+    /// (§19.5 item 4 — "verifiable as a byte-residue property"). Empty for non-sanitizing modes.
+    public var forbiddenResidue: [[UInt8]]
+    public init(mode: Mode, forbiddenResidue: [[UInt8]] = []) {
+        self.mode = mode
+        self.forbiddenResidue = forbiddenResidue
+    }
 
     public static let incremental = SaveOptions(mode: .incremental)
     public static let fullRewrite = SaveOptions(mode: .fullRewrite)
+    public static let sanitizing = SaveOptions(mode: .sanitizing)
+    /// A sanitizing save that also verifies none of `forbiddenResidue` survives in the output (§19.5).
+    public static func sanitizing(forbiddenResidue: [[UInt8]]) -> SaveOptions {
+        SaveOptions(mode: .sanitizing, forbiddenResidue: forbiddenResidue)
+    }
 }
 
 public enum PDFWriter {
@@ -32,7 +47,36 @@ public enum PDFWriter {
             return try await saveIncremental(store)
         case .fullRewrite:
             return try await saveFullRewrite(store)
+        case .sanitizing:
+            // §19.5: the full rewrite already rebuilds from store state with no /Prev and no
+            // prior-version bytes; the sanitizing contract adds the observable no-residue check.
+            let bytes = try await saveFullRewrite(store)
+            try verifyNoResidue(bytes, forbidden: options.forbiddenResidue)
+            return bytes
         }
+    }
+
+    /// Throw if any forbidden (removed-content) byte sequence survives in the saved output (§19.5).
+    static func verifyNoResidue(_ bytes: [UInt8], forbidden: [[UInt8]]) throws {
+        for needle in forbidden where !needle.isEmpty {
+            if containsSubsequence(bytes, needle) {
+                throw PDFError.ioFailure("sanitizing save: removed-content residue survived in output")
+            }
+        }
+    }
+
+    /// Plain linear substring search over bytes (§19.5 byte-residue scan).
+    static func containsSubsequence(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
+        guard needle.count <= haystack.count else { return false }
+        let last = haystack.count - needle.count
+        var i = 0
+        while i <= last {
+            var k = 0
+            while k < needle.count, haystack[i + k] == needle[k] { k += 1 }
+            if k == needle.count { return true }
+            i += 1
+        }
+        return false
     }
 
     // MARK: - incremental update (§19.3)
