@@ -32,6 +32,7 @@ let package = Package(
         .library(name: "PDFAnnotations", targets: ["PDFAnnotations"]),
         .library(name: "PDFForms", targets: ["PDFForms"]),
         .library(name: "PDFRedaction", targets: ["PDFRedaction"]),
+        .library(name: "PDFKitBridge", targets: ["PDFKitBridge"]),
     ],
     targets: [
         // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
@@ -102,6 +103,13 @@ let package = Package(
             name: "PDFRedaction",
             dependencies: ["PDFCore", "PDFContent", "PDFFonts", "PDFColor", "PDFImages",
                            "PDFFilters", "PDFAnnotations", "PDFWriter", "PDFRender"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        // Optional Apple interop boundary (spec §20.13). All bridging is #if canImport gated; the core
+        // never requires CoreGraphics/PDFKit in its essential signatures.
+        .target(
+            name: "PDFKitBridge",
+            dependencies: ["PDFCore", "PDFWriter", "PDFImages", "PDFRender"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
 
@@ -176,6 +184,11 @@ let package = Package(
             name: "PDFRedactionTests",
             dependencies: ["PDFRedaction", "PDFCore", "PDFContent", "PDFFonts", "PDFColor",
                            "PDFImages", "PDFAnnotations", "PDFWriter", "PDFRender", "PDFText"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "PDFKitBridgeTests",
+            dependencies: ["PDFKitBridge", "PDFCore", "PDFImages", "PDFRender"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
