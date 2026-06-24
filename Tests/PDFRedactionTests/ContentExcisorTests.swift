@@ -48,13 +48,7 @@ private func currentContent(_ store: PDFObjectStore) async throws -> [UInt8] {
 }
 
 private func occurrences(of needle: String, in bytes: [UInt8]) -> Int {
-    let n = Array(needle.utf8)
-    guard !n.isEmpty, bytes.count >= n.count else { return 0 }
-    var count = 0, i = 0
-    while i <= bytes.count - n.count {
-        if Array(bytes[i..<i + n.count]) == n { count += 1; i += n.count } else { i += 1 }
-    }
-    return count
+    bytes.occurrences(ofSubsequence: Array(needle.utf8))
 }
 
 @Test func exciseRemovesInRegionTextKeepsRest() async throws {

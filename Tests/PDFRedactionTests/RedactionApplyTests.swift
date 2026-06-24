@@ -56,12 +56,6 @@ private func mixedPageStore() async -> PDFObjectStore {
     return store
 }
 
-private func containsSeq(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
-    guard needle.count <= haystack.count else { return false }
-    for i in 0...(haystack.count - needle.count) where Array(haystack[i..<i + needle.count]) == needle { return true }
-    return false
-}
-
 @Test func applyRemovesAllTracesOfMarkedContent() async throws {
     let store = await mixedPageStore()
 
@@ -73,9 +67,9 @@ private func containsSeq(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
     let saved = try await RedactionApplier(store: store).applyAll()
 
     // (a) Byte scan: no occurrence of the removed text.
-    #expect(!containsSeq(saved, Array("SECRET".utf8)))
+    #expect(!saved.contains(subsequence: Array("SECRET".utf8)))
     // The output is also free of any surviving /Redact annotation.
-    #expect(!containsSeq(saved, Array("/Redact".utf8)))
+    #expect(!saved.contains(subsequence: Array("/Redact".utf8)))
 
     // (b) Text extraction on the reopened output: PUBLIC survives, SECRET is gone.
     let reopened = try PDFObjectStore.open(saved)

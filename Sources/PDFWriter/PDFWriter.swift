@@ -59,24 +59,10 @@ public enum PDFWriter {
     /// Throw if any forbidden (removed-content) byte sequence survives in the saved output (§19.5).
     static func verifyNoResidue(_ bytes: [UInt8], forbidden: [[UInt8]]) throws {
         for needle in forbidden where !needle.isEmpty {
-            if containsSubsequence(bytes, needle) {
+            if bytes.contains(subsequence: needle) {
                 throw PDFError.ioFailure("sanitizing save: removed-content residue survived in output")
             }
         }
-    }
-
-    /// Plain linear substring search over bytes (§19.5 byte-residue scan).
-    static func containsSubsequence(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
-        guard needle.count <= haystack.count else { return false }
-        let last = haystack.count - needle.count
-        var i = 0
-        while i <= last {
-            var k = 0
-            while k < needle.count, haystack[i + k] == needle[k] { k += 1 }
-            if k == needle.count { return true }
-            i += 1
-        }
-        return false
     }
 
     // MARK: - incremental update (§19.3)

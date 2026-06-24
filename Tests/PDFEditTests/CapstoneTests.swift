@@ -50,12 +50,6 @@ private func authorRichDocument() async -> Document {
     return doc
 }
 
-private func containsSeq(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
-    guard needle.count <= haystack.count else { return false }
-    for i in 0...(haystack.count - needle.count) where Array(haystack[i..<i + needle.count]) == needle { return true }
-    return false
-}
-
 @Test func capstoneOpenEditAnnotateFillRedactSaveReopen() async throws {
     // Round-trip the authored document through open() so the whole flow runs on a parsed document.
     let doc = try Document.open(data: try await authorRichDocument().save(.fullRewrite))
@@ -76,7 +70,7 @@ private func containsSeq(_ haystack: [UInt8], _ needle: [UInt8]) -> Bool {
     let saved = try await doc.redaction.applyAll()
 
     // 5. Reopen and verify every subsystem persisted coherently.
-    #expect(!containsSeq(saved, Array("SECRET".utf8)))
+    #expect(!saved.contains(subsequence: Array("SECRET".utf8)))
     let reopened = try Document.open(data: saved)
     let store = reopened.objectModel
     #expect(await reopened.pageCount == 1)

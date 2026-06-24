@@ -119,7 +119,7 @@ private func minimalPDF() -> [UInt8] {
 
     // A plain sanitizing save: single self-contained file, no /Prev chain (§19.5).
     let bytes = try await PDFWriter.save(store, options: .sanitizing)
-    #expect(!PDFWriter.containsSubsequence(bytes, Array("/Prev".utf8)))
+    #expect(!bytes.contains(subsequence: Array("/Prev".utf8)))
     let reopened = try PDFObjectStore.open(bytes)
     #expect(await reopened.pageCount() == 1)
 
@@ -138,7 +138,7 @@ private func minimalPDF() -> [UInt8] {
     p.set(PDFName("Contents"), .null)
     await store.define(page, .dictionary(p))
     let clean = try await PDFWriter.save(store, options: .sanitizing(forbiddenResidue: [secret]))
-    #expect(!PDFWriter.containsSubsequence(clean, secret))
+    #expect(!clean.contains(subsequence: secret))
 }
 
 @Test func streamRoundTripPreservesRawBytes() async throws {
