@@ -60,6 +60,13 @@ public struct AnnotationEditor: Sendable {
             annot.set(PDFName("DA"), .string(PDFString("/Helv \(Int(size)) Tf 0 g")))
         case let .stamp(name):
             annot.set(PDFName("Name"), .name(PDFName(name)))
+        case let .redact(quads, interior, overlayText, repeatText, quadding, da):
+            annot.set(PDFName("QuadPoints"), .array(quads.flatMap { $0.flatArray.map { PDFObject.real($0) } }))
+            if let interior { annot.set(PDFName("IC"), interior.array) }
+            if let overlayText { annot.set(PDFName("OverlayText"), .string(PDFString(text: overlayText))) }
+            if repeatText { annot.set(PDFName("Repeat"), .boolean(true)) }
+            if quadding != 0 { annot.set(PDFName("Q"), .integer(Int64(quadding))) }
+            if let da { annot.set(PDFName("DA"), .string(PDFString(da))) }
         }
 
         if generateAppearance, let apRef = await makeAppearance(kind, common) {
@@ -149,8 +156,8 @@ public struct AnnotationEditor: Sendable {
             gen.nextLine(rect.x0 + 2, rect.y1 - size - 2)   // top-left inset
             gen.showText(Array(text.utf8))
             gen.endText()
-        case .text, .link, .stamp:
-            return nil   // viewer draws the icon; links are invisible
+        case .text, .link, .stamp, .redact:
+            return nil   // viewer draws the icon; links are invisible; redact mark needs no /AP
         }
 
         guard let bytes = try? gen.bytes() else { return nil }

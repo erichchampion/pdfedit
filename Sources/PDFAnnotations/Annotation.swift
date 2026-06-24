@@ -98,6 +98,10 @@ public enum AnnotationKind: Sendable {
     case ink(paths: [[PDFPoint]])                                   // §12.5.6.13
     case freeText(text: String, fontSize: Double, color: RGB)       // §12.5.6.6
     case stamp(name: String)                                       // §12.5.6.12
+    /// A redaction mark (§12.5.6.23). Before apply it is an ordinary annotation carrying intent; the
+    /// redaction itself is performed by the apply operation (Ch 17 §17.3) — never by this mark.
+    case redact(quads: [PDFQuad], interior: AnnotationColor?, overlayText: String?,
+                repeatText: Bool, quadding: Int, da: String?)
 
     var subtype: String {
         switch self {
@@ -110,6 +114,7 @@ public enum AnnotationKind: Sendable {
         case .ink: return "Ink"
         case .freeText: return "FreeText"
         case .stamp: return "Stamp"
+        case .redact: return "Redact"
         }
     }
 }
