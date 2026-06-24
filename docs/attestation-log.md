@@ -75,6 +75,40 @@ Template:
   reference to the cited public standards and/or black-box observation." — signed: spec team agent; independently verified by review agent (gate 3 PASS)
 - Sanitized golden data promoted alongside: none
 
+### Chapter 05 — Stream Filters and Decoders
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no codec decode-loop / table / tuning-constant transcription; external codecs cited by name only)
+- Gatekeeper sign-off: PROMOTED — `spec/05-stream-filters.md` (+ citations)
+- Counsel spot-check: N/A (filters are public standards)
+- Source citations: ISO 32000-1/-2 §7.3.8.2, §7.4.1–7.4.9 (incl. §7.4.4.2, §7.4.4.4), §8.9.7, §7.2.3; external by name: RFC 1950/1951, PNG predictors, ITU-T T.4/T.6/T.81/T.88, ISO/IEC 10918/14492/15444
+- MuPDF-exposure attestation: "Contains no MuPDF code or copyrightable expression; behavior expressed by reference to cited public standards." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 07 — Document Structure and the Page Tree
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; no leakage)
+- Gatekeeper sign-off: PROMOTED — `spec/07-document-and-page-tree.md` (+ citations)
+- Counsel spot-check: N/A (standard-defined structure)
+- Source citations: ISO 32000-1/-2 §7.5.5, §7.7.2, §7.7.3 (.1–.4), §7.7.4, §7.8.2, §7.8.3, §14.11.2; refs §12.3.3, §12.5, §12.7.2, §14.3.3, §11.4.7, §7.3.10, §7.9.5
+- MuPDF-exposure attestation: "Contains no MuPDF code or copyrightable expression; behavior expressed by reference to cited public standards." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
+### Chapter 19 — Saving: Incremental Update and Full/Optimized Rewrite
+- Date: 2026-06-23
+- Author (spec team): spec team agent (restricted repo)
+- Peer reviewer: independent review agent — PASS (gate 2)
+- Cleanliness reviewer: independent review agent — PASS (gate 3; MODERATE-care flag CLEARED — GC/optimization/scrubbing stated as observable goals only, no algorithm/ordering described)
+- Gatekeeper sign-off: PROMOTED — `spec/19-saving.md` (+ citations)
+- Counsel spot-check: N/A (not recovery/encryption/font; no algorithm-shaped prose found)
+- Source citations: ISO 32000-1/-2 §7.5.4–7.5.8 (incl. §7.5.8.2), §7.5.2, §7.7.2, §7.3.10, §12.8, §14.4, §7.6
+- MuPDF-exposure attestation: "Contains no MuPDF code or copyrightable expression; garbage collection and optimization stated as observable goals only, never as an algorithm or ordering." — signed: spec team agent; independently verified (gate 3 PASS)
+- Sanitized golden data promoted alongside: none
+
 <!-- Ch 04 (recovery) remains UNPROMOTED — blocked pending human counsel spot-check (gate 5). -->
-<!-- Three review fixes were applied on the restricted side before promotion: an object-type
-     enumeration count (Ch02 §2.8), two clause re-anchorings (Ch02 §2.3.3, Ch03 §3.9.1). -->
+<!-- Review fixes applied on the restricted side before promotion: Ch02 §2.8 object-type
+     enumeration count, two clause re-anchorings (Ch02 §2.3.3, Ch03 §3.9.1). Cluster C1 (05/07/19)
+     required no fixes. -->
