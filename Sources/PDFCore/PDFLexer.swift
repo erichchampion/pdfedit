@@ -7,17 +7,17 @@
 //
 // Built from ISO 32000 §7.2–§7.3. No MuPDF source was read or referenced.
 
-struct PDFLexer {
+public struct PDFLexer {
     let bytes: [UInt8]
     /// Current read position (also used by the parser to read stream bodies directly, §4.5).
     var pos: Int
 
-    init(_ bytes: [UInt8], at pos: Int = 0) {
+    public init(_ bytes: [UInt8], at pos: Int = 0) {
         self.bytes = bytes
         self.pos = pos
     }
 
-    enum Token: Equatable, Sendable {
+    public enum Token: Equatable, Sendable {
         case integer(Int64)
         case real(Double)
         case string([UInt8])       // decoded bytes (literal or hex)
@@ -69,7 +69,7 @@ struct PDFLexer {
         }
     }
 
-    mutating func next() throws -> Token {
+    public mutating func next() throws -> Token {
         skipWhitespaceAndComments()
         guard pos < bytes.count else { return .eof }
         let b = bytes[pos]
