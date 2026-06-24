@@ -85,6 +85,27 @@ private func parse(_ s: String) throws -> PDFObject {
     #expect(s.rawData == Array(body.utf8))
 }
 
+@Test func parseStreamMissingEndstreamThrows() throws {
+    // Wrong /Length forces the endstream scan; with no endstream at all, the parser must throw
+    // (not hang or trap, §4.9 / §20.11).
+    let pdf = "<< /Length 3 >>\nstream\nsome data with no terminator"
+    #expect(throws: PDFError.self) { _ = try parse(pdf) }
+}
+
+@Test func parseStreamRespectsCorrectLengthDespiteEmbeddedEndstreamBytes() throws {
+    // The data legitimately contains the bytes "endstream"; a correct /Length must be honoured so the
+    // real terminator (not the embedded one) bounds the stream.
+    let body = "x endstream y"
+    let pdf = "<< /Length \(body.utf8.count) >>\nstream\n\(body)\nendstream"
+    guard case let .stream(s) = try parse(pdf) else { Issue.record("not a stream"); return }
+    #expect(s.rawData == Array(body.utf8))
+}
+
+@Test func parseUnterminatedArrayAndDictionaryThrow() throws {
+    #expect(throws: PDFError.self) { _ = try parse("[ 1 2 3") }
+    #expect(throws: PDFError.self) { _ = try parse("<< /A 1 ") }
+}
+
 @Test func parseIndirectObjectDefinition() throws {
     var p = PDFParser(Array("12 0 obj << /A 1 >> endobj".utf8))
     let (ref, value) = try p.parseIndirectObjectDefinition()
