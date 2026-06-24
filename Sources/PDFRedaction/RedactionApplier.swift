@@ -42,6 +42,12 @@ public struct RedactionApplier: Sendable {
         let editor = AnnotationEditor(store: store)
         for ref in markRefs { try await editor.remove(ref, fromPageAt: index) }
 
+        // 6. High-security option: flatten the now-redacted page to a single raster (§17.7) — AFTER
+        // removal, so the raster carries none of the removed content.
+        if case let .rasterizeFlatten(dpi) = options.mode {
+            try await RasterizeFlatten(store: store).flatten(pageAt: index, dpi: dpi)
+        }
+
         return result.removedText
     }
 
