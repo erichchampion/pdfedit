@@ -15,13 +15,13 @@ enum PDFSerializer {
         case let .boolean(b):
             out.append(contentsOf: (b ? "true" : "false").utf8)
         case let .integer(i):
-            out.append(contentsOf: String(i).utf8)
+            out.append(contentsOf: PDFTokenFormat.integer(i))
         case let .real(r):
-            out.append(contentsOf: formatReal(r).utf8)
+            out.append(contentsOf: PDFTokenFormat.real(r))
         case let .string(s):
-            serializeLiteralString(s, into: &out)
+            out.append(contentsOf: PDFTokenFormat.literalString(s.bytes))
         case let .name(n):
-            serializeName(n, into: &out)
+            out.append(contentsOf: PDFTokenFormat.name(n))
         case let .array(a):
             out.append(UInt8(ascii: "["))
             for (i, element) in a.enumerated() {
@@ -42,7 +42,7 @@ enum PDFSerializer {
         out.append(contentsOf: "<<".utf8)
         for key in dict.keys.sorted(by: { lexLess($0.bytes, $1.bytes) }) {
             out.append(UInt8(ascii: " "))
-            serializeName(key, into: &out)
+            out.append(contentsOf: PDFTokenFormat.name(key))
             out.append(UInt8(ascii: " "))
             serialize(dict[key]!, into: &out)
         }
@@ -59,68 +59,8 @@ enum PDFSerializer {
         out.append(contentsOf: "\nendstream".utf8)
     }
 
-    static func serializeName(_ name: PDFName, into out: inout [UInt8]) {
-        out.append(UInt8(ascii: "/"))
-        for b in name.bytes {
-            if b > 0x20, b < 0x7F, !PDFFiltersIsNameDelimiter(b), b != UInt8(ascii: "#") {
-                out.append(b)
-            } else {
-                out.append(UInt8(ascii: "#"))
-                out.append(hexDigit(b >> 4))
-                out.append(hexDigit(b & 0x0F))
-            }
-        }
-    }
-
-    /// Literal string with escaping; non-printable bytes as `\ddd` octal (§7.3.4.2).
-    static func serializeLiteralString(_ s: PDFString, into out: inout [UInt8]) {
-        out.append(UInt8(ascii: "("))
-        for b in s.bytes {
-            switch b {
-            case UInt8(ascii: "("), UInt8(ascii: ")"), UInt8(ascii: "\\"):
-                out.append(UInt8(ascii: "\\")); out.append(b)
-            case 0x20...0x7E:
-                out.append(b)
-            default:
-                out.append(UInt8(ascii: "\\"))
-                out.append(UInt8(ascii: "0") + ((b >> 6) & 0x7))
-                out.append(UInt8(ascii: "0") + ((b >> 3) & 0x7))
-                out.append(UInt8(ascii: "0") + (b & 0x7))
-            }
-        }
-        out.append(UInt8(ascii: ")"))
-    }
-
-    /// Format a real without exponent notation (a conforming producer must not emit it, §2.3.3),
-    /// always keeping a decimal point so it re-parses as a real.
-    static func formatReal(_ r: Double) -> String {
-        if r == r.rounded(), abs(r) < 1e15 {
-            return String(Int64(r)) + ".0"
-        }
-        var s = String(format: "%.6f", r)
-        while s.hasSuffix("0") { s.removeLast() }
-        if s.hasSuffix(".") { s.append("0") }
-        return s
-    }
-
-    private static func hexDigit(_ v: UInt8) -> UInt8 {
-        v < 10 ? UInt8(ascii: "0") + v : UInt8(ascii: "A") + (v - 10)
-    }
-
     private static func lexLess(_ a: [UInt8], _ b: [UInt8]) -> Bool {
         for i in 0..<min(a.count, b.count) where a[i] != b[i] { return a[i] < b[i] }
         return a.count < b.count
-    }
-}
-
-/// Local copy of the name-delimiter predicate (avoids importing PDFFilters here).
-private func PDFFiltersIsNameDelimiter(_ b: UInt8) -> Bool {
-    switch b {
-    case UInt8(ascii: "("), UInt8(ascii: ")"), UInt8(ascii: "<"), UInt8(ascii: ">"),
-         UInt8(ascii: "["), UInt8(ascii: "]"), UInt8(ascii: "{"), UInt8(ascii: "}"),
-         UInt8(ascii: "/"), UInt8(ascii: "%"):
-        return true
-    default:
-        return false
     }
 }

@@ -71,6 +71,19 @@ public actor PDFObjectStore {
         return current
     }
 
+    /// Fully decode a stream's logical bytes (filters applied, §2.3.7), resolving any indirect
+    /// `/Filter`/`/DecodeParms`/`/Length` through the store. Throws `.unsupportedFeature` for a
+    /// terminal image codec at the foundation milestone (§5.13).
+    public func decodedData(of stream: PDFStream) throws -> [UInt8] {
+        try StreamDecoder.decodedData(stream) { self.object($0.number) }
+    }
+
+    /// Decode an object that resolves to a stream; nil if it is not a stream.
+    public func decodedData(of object: PDFObject) throws -> [UInt8]? {
+        guard let stream = dereference(object).streamValue else { return nil }
+        return try decodedData(of: stream)
+    }
+
     func object(_ number: Int) -> PDFObject {
         if deleted.contains(number) { return .null }
         if let edited = edits[number] { return edited }
