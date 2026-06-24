@@ -7,6 +7,17 @@
 
 import PDFFilters
 
+extension PDFObjectStore {
+    /// The raw filter-pipeline result for a stream (spec §5.2.2, §12.9): either fully decoded bytes,
+    /// or a terminal image codec's encoded bytes (DCT/JPX/CCITT/JBIG2) for the imaging module to
+    /// route to Image I/O or its own decoders. Unlike `decodedData(of:)`, this does NOT throw on a
+    /// terminal image codec.
+    public func pipelineResult(of stream: PDFStream) throws -> PipelineResult {
+        let chain = try StreamDecoder.filterChain(stream.dictionary) { self.object($0.number) }
+        return try FilterPipeline.decode(stream.rawData, filters: chain)
+    }
+}
+
 enum StreamDecoder {
     /// Resolve a value one level through indirect references when a resolver is supplied.
     static func resolved(_ object: PDFObject?, _ resolve: (PDFRef) -> PDFObject?) -> PDFObject? {
