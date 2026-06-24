@@ -11,6 +11,8 @@ public actor PDFObjectStore {
     public let sourceBytes: [UInt8]?
     /// The (newest) trailer dictionary (spec §3.6.2): /Root, /Size, /Encrypt, /ID, /Info.
     public private(set) var trailer: PDFDictionary
+    /// Non-nil when the document was opened via recovery (spec Ch 04; Ch 20 §20.11 warning channel).
+    public nonisolated let repairReport: RepairReport?
 
     private var entries: [Int: XRefEntry]
     private var resident: [Int: PDFObject] = [:]      // parsed-on-disk cache + in-memory edits
@@ -18,10 +20,11 @@ public actor PDFObjectStore {
     private var objStmCache: [Int: [Int: PDFObject]] = [:]
     private var highestNumber: Int
 
-    init(bytes: [UInt8]?, xref: XRefResult) {
+    init(bytes: [UInt8]?, xref: XRefResult, repairReport: RepairReport? = nil) {
         self.sourceBytes = bytes
         self.entries = xref.entries
         self.trailer = xref.trailer
+        self.repairReport = repairReport
         self.highestNumber = (xref.trailer[PDFName("Size")]?.intValue).map { $0 - 1 }
             ?? (xref.entries.keys.max() ?? 0)
     }
@@ -31,14 +34,22 @@ public actor PDFObjectStore {
         self.sourceBytes = nil
         self.entries = [:]
         self.trailer = PDFDictionary()
+        self.repairReport = nil
         self.highestNumber = 0
     }
 
-    /// Open a document by loading its cross-reference data (spec Ch 03/04). Synchronous parse of
-    /// the xref structure; object bodies are materialized lazily on resolve.
+    /// Open a document, loading its cross-reference data (spec Ch 03/04). The conformant load is
+    /// tried first; on failure the recovery engine rebuilds from the body (§4.7.1). Object bodies
+    /// are materialized lazily on resolve. Malformed input repairs-or-throws — never traps (§4.12).
     public static func open(_ bytes: [UInt8]) throws -> PDFObjectStore {
-        let xref = try CrossReferenceReader(bytes).load()
-        return PDFObjectStore(bytes: bytes, xref: xref)
+        if let xref = try? CrossReferenceReader(bytes).load(),
+           xref.trailer[PDFName("Root")] != nil {
+            return PDFObjectStore(bytes: bytes, xref: xref)
+        }
+        guard let (rebuilt, report) = RecoveryEngine.rebuild(bytes) else {
+            throw PDFError.malformed("unrecoverable: no recoverable objects or document root")
+        }
+        return PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
     }
 
     // MARK: - resolution (§2.4.3, §4.3)
