@@ -67,9 +67,8 @@ public struct Page: Sendable {
     public var annotations: AnnotationsFacade { AnnotationsFacade(store: store, pageRef: reference) }
 }
 
-/// The current index of a page reference in the document's leaf order, if still present.
+/// The current index of a page reference in the document's leaf order, if still present. One tree
+/// walk via `pageReferences()` — avoids the O(n²) of calling `pageReference(at:)` per index.
 func pageIndex(of ref: PDFRef, in store: PDFObjectStore) async -> Int? {
-    let count = await store.pageCount()
-    for i in 0..<count where await store.pageReference(at: i) == ref { return i }
-    return nil
+    await store.pageReferences().firstIndex(of: ref)
 }

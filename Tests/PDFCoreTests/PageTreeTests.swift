@@ -50,4 +50,9 @@ import Testing
     #expect(a1.rotate == 90)
 
     #expect(await store.page(at: 5) == nil)
+
+    // pageReferences() returns the leaf refs in order, agreeing with per-index pageReference(at:).
+    let refs = await store.pageReferences()
+    #expect(refs == [page1, page2])
+    #expect(refs.firstIndex(of: page2) == 1)
 }

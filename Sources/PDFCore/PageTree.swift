@@ -74,6 +74,30 @@ extension PDFObjectStore {
         return nil
     }
 
+    /// Every page leaf's indirect reference, in document (in-order leaf) sequence — a single tree walk
+    /// (spec §7.7.3). Callers that need a page's index should use this once rather than calling
+    /// `pageReference(at:)` in a loop (which re-walks the tree each time — O(n²)).
+    public func pageReferences() -> [PDFRef] {
+        guard let catalog = catalog(), let pagesRef = catalog[PDFName("Pages")]?.referenceValue else { return [] }
+        var out: [PDFRef] = []
+        var visited = Set<Int>()
+        collectPageRefs(pagesRef, into: &out, visited: &visited, depth: 0)
+        return out
+    }
+
+    private func collectPageRefs(_ nodeRef: PDFRef, into out: inout [PDFRef], visited: inout Set<Int>, depth: Int) {
+        guard depth < 64, !visited.contains(nodeRef.number) else { return }
+        visited.insert(nodeRef.number)
+        guard let node = resolve(nodeRef).dictionaryValue else { return }
+        let type = node[PDFName("Type")]?.nameValue?.string
+        let kids = dereference(node[PDFName("Kids")] ?? .null).arrayValue
+        if type == "Page" || kids == nil { out.append(nodeRef); return }
+        for kid in kids ?? [] {
+            guard let kidRef = kid.referenceValue else { continue }
+            collectPageRefs(kidRef, into: &out, visited: &visited, depth: depth + 1)
+        }
+    }
+
     /// Resolve a page's effective inheritable attributes by walking the /Parent chain (§7.7.3.3).
     public func effectivePageAttributes(_ page: PDFDictionary) -> ResolvedPageAttributes {
         func inherited(_ key: PDFName) -> PDFObject? {
