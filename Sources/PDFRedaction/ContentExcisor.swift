@@ -83,6 +83,7 @@ public struct ContentExcisor: Sendable {
                 ownerRef: PDFRef?) async throws -> ([UInt8], Bool) {
         guard depth < 12 else { return (content, false) }   // form recursion guard (§8.10.1)
         var out: [UInt8] = []
+        out.reserveCapacity(content.count)   // re-emitted output is ~the same size as the input
         var removed = false
         var state = ExcisionState(ctm: initialCTM)
         var stack: [ExcisionState] = []
