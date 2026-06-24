@@ -59,5 +59,12 @@ let package = Package(
             dependencies: ["PDFWriter", "PDFCore"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // Clean-side conformance harness (spec Ch 21): neutral saved-structure checks +
+        // availability-gated PDFKit/CGPDF oracle cross-checks. Never reads MuPDF.
+        .testTarget(
+            name: "ConformanceHarnessTests",
+            dependencies: ["PDFCore", "PDFWriter"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
     ]
 )
