@@ -61,4 +61,26 @@ public struct ImageInvocation: Sendable, Equatable {
     public let resourceName: String?         // XObject name; nil for inline
     public let isInline: Bool
     public let ctm: PDFMatrix                 // unit square → device
+    public let inlineDictionary: PDFDictionary?  // present iff isInline (§12.8)
+    public let inlineData: [UInt8]?              // raw bytes after ID (pre-filter)
+
+    public init(resourceName: String?, isInline: Bool, ctm: PDFMatrix,
+                inlineDictionary: PDFDictionary? = nil, inlineData: [UInt8]? = nil) {
+        self.resourceName = resourceName
+        self.isInline = isInline
+        self.ctm = ctm
+        self.inlineDictionary = inlineDictionary
+        self.inlineData = inlineData
+    }
+}
+
+extension DisplayList {
+    /// All text runs, in display order (convenience for extraction).
+    public var textRuns: [TextRun] {
+        items.compactMap { if case let .text(t) = $0 { return t } else { return nil } }
+    }
+    /// All image invocations, in display order.
+    public var imageInvocations: [ImageInvocation] {
+        items.compactMap { if case let .image(i) = $0 { return i } else { return nil } }
+    }
 }

@@ -67,8 +67,10 @@ final class Machine {
                 break loop
             case .operand(let o):
                 operands.append(o)
-            case let .inlineImage(_, _):
-                items.append(.image(ImageInvocation(resourceName: nil, isInline: true, ctm: state.ctm)))
+            case let .inlineImage(dict, data):
+                items.append(.image(ImageInvocation(
+                    resourceName: nil, isInline: true, ctm: state.ctm,
+                    inlineDictionary: dict, inlineData: data)))
                 operands.removeAll()
             case .op(let op):
                 let n = nums()

@@ -1,0 +1,80 @@
+// Page lookup and inheritable page attributes (spec Ch 07 §7.7.3; §14.11.2 boxes).
+//
+// Walks the page tree to the Nth page leaf and resolves the effective inheritable attributes
+// (/MediaBox, /CropBox, /Rotate, /Resources) up the /Parent chain (§7.7.3.2/§7.7.3.3). Shared by
+// the Phase-3 text/imaging/render modules. No MuPDF source was read or referenced.
+
+/// A page's resolved, inheritance-applied attributes (spec §7.7.3.3, §14.11.2).
+public struct ResolvedPageAttributes: Sendable {
+    public var mediaBox: PDFRectangle
+    public var cropBox: PDFRectangle          // defaults to & intersected with mediaBox (§14.11.2)
+    public var rotate: Int                    // normalized to {0,90,180,270} (§7.7.3.3)
+    public var resources: PDFDictionary?
+}
+
+extension PDFObjectStore {
+    /// The Nth page leaf in document (in-order leaf) sequence (spec §7.7.3).
+    public func page(at index: Int) -> PDFDictionary? {
+        guard let catalog = catalog(),
+              let pagesNode = dereference(catalog[PDFName("Pages")] ?? .null).dictionaryValue else { return nil }
+        var counter = 0
+        var visited = Set<Int>()
+        return findPage(pagesNode, target: index, counter: &counter, visited: &visited, depth: 0)
+    }
+
+    private func findPage(_ node: PDFDictionary, target: Int, counter: inout Int, visited: inout Set<Int>, depth: Int) -> PDFDictionary? {
+        guard depth < 64 else { return nil }
+        let type = node[PDFName("Type")]?.nameValue?.string
+        let kidsObj = dereference(node[PDFName("Kids")] ?? .null).arrayValue
+        if type == "Page" || kidsObj == nil {
+            // A page leaf.
+            if counter == target { return node }
+            counter += 1
+            return nil
+        }
+        for kid in kidsObj ?? [] {
+            if case let .reference(r) = kid {
+                if visited.contains(r.number) { continue }
+                visited.insert(r.number)
+            }
+            guard let kidDict = dereference(kid).dictionaryValue else { continue }
+            if let found = findPage(kidDict, target: target, counter: &counter, visited: &visited, depth: depth + 1) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    /// Resolve a page's effective inheritable attributes by walking the /Parent chain (§7.7.3.3).
+    public func effectivePageAttributes(_ page: PDFDictionary) -> ResolvedPageAttributes {
+        func inherited(_ key: PDFName) -> PDFObject? {
+            var current: PDFDictionary? = page
+            var depth = 0
+            while let node = current, depth < 64 {
+                if let value = node[key] { return value }
+                current = dereference(node[PDFName("Parent")] ?? .null).dictionaryValue
+                depth += 1
+            }
+            return nil
+        }
+        func rectangle(_ key: PDFName) -> PDFRectangle? {
+            guard let array = inherited(key).flatMap({ dereference($0).arrayValue }) else { return nil }
+            return PDFRectangle(array: array.map { dereference($0) })
+        }
+
+        let mediaBox = rectangle(PDFName("MediaBox")) ?? PDFRectangle(x0: 0, y0: 0, x1: 612, y1: 792)
+        var cropBox = rectangle(PDFName("CropBox")) ?? mediaBox
+        // CropBox is intersected with MediaBox (§14.11.2).
+        cropBox = PDFRectangle(
+            x0: max(cropBox.x0, mediaBox.x0), y0: max(cropBox.y0, mediaBox.y0),
+            x1: min(cropBox.x1, mediaBox.x1), y1: min(cropBox.y1, mediaBox.y1))
+        if cropBox.width <= 0 || cropBox.height <= 0 { cropBox = mediaBox }
+
+        var rotate = inherited(PDFName("Rotate")).flatMap { dereference($0).intValue } ?? 0
+        rotate = ((rotate % 360) + 360) % 360
+        if rotate % 90 != 0 { rotate = 0 }
+
+        let resources = inherited(PDFName("Resources")).flatMap { dereference($0).dictionaryValue }
+        return ResolvedPageAttributes(mediaBox: mediaBox, cropBox: cropBox, rotate: rotate, resources: resources)
+    }
+}
