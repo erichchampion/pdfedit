@@ -35,7 +35,7 @@ public struct ObjectImporter {
         // Materialize effective inheritable attributes onto a normalized page dict.
         let attrs = await source.effectivePageAttributes(srcPage)
         var normalized = srcPage
-        normalized.set(PDFName("MediaBox"), rectArray(attrs.mediaBox))
+        normalized.set(PDFName("MediaBox"), attrs.mediaBox.arrayObject)
         normalized.set(PDFName("Rotate"), .integer(Int64(attrs.rotate)))
         if let res = attrs.resources { normalized.set(PDFName("Resources"), .dictionary(res)) }
         normalized.set(PDFName("Parent"), .null)   // dropped; set on insert
@@ -83,10 +83,4 @@ public struct ObjectImporter {
         for key in dict.keys { out.set(key, rewrite(dict[key]!)) }
         return out
     }
-}
-
-/// A PDF rectangle array, using integers where the values are whole (spec §7.9.5).
-func rectArray(_ rect: PDFRectangle) -> PDFObject {
-    func n(_ v: Double) -> PDFObject { v == v.rounded() ? .integer(Int64(v)) : .real(v) }
-    return .array([n(rect.x0), n(rect.y0), n(rect.x1), n(rect.y1)])
 }

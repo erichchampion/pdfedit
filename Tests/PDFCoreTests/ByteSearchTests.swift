@@ -15,3 +15,13 @@ import PDFCore
     #expect(h.occurrences(ofSubsequence: []) == 0)
     #expect(Array("aaaa".utf8).occurrences(ofSubsequence: Array("aa".utf8)) == 2)  // non-overlapping
 }
+
+@Test func rectangleArrayRoundTrip() async throws {
+    let r = PDFRectangle(x0: 0, y0: 0, x1: 612, y1: 792)
+    // Whole values serialize as integers; round-trips back to the same rect.
+    #expect(r.arrayObject == .array([.integer(0), .integer(0), .integer(612), .integer(792)]))
+    #expect(PDFRectangle(array: r.arrayObject.arrayValue!) == r)
+    // Fractional values preserved as reals.
+    let f = PDFRectangle(x0: 0.5, y0: 1, x1: 2.25, y1: 3)
+    #expect(PDFRectangle(array: f.arrayObject.arrayValue!) == f)
+}

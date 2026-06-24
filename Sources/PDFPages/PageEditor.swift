@@ -31,7 +31,7 @@ public struct PageEditor: Sendable {
     public func insertBlankPage(mediaBox: PDFRectangle, at index: Int) async throws -> PDFRef {
         let ref = await store.add(.dictionary(PDFDictionary(pairs: [
             (PDFName("Type"), .name(PDFName("Page"))),
-            (PDFName("MediaBox"), rectArray(mediaBox)),
+            (PDFName("MediaBox"), mediaBox.arrayObject),
         ])))
         try await spliceLeaves { $0.insert(ref, at: clamp(index, $0.count)) }
         return ref
@@ -77,7 +77,7 @@ public struct PageEditor: Sendable {
               var page = await store.resolve(ref).dictionaryValue else {
             throw PDFError.malformed("setBox: no page \(index)")
         }
-        page.set(box.key, rect.map(rectArray) ?? .null)   // nil removes the key → defaulting chain
+        page.set(box.key, rect.map(\.arrayObject) ?? .null)   // nil removes the key → defaulting chain
         await store.define(ref, .dictionary(page))
     }
 
@@ -163,7 +163,7 @@ public struct PageEditor: Sendable {
     private func materialize(_ leafRef: PDFRef) async {
         guard var leaf = await store.resolve(leafRef).dictionaryValue else { return }
         let attrs = await store.effectivePageAttributes(leaf)
-        leaf.set(PDFName("MediaBox"), rectArray(attrs.mediaBox))
+        leaf.set(PDFName("MediaBox"), attrs.mediaBox.arrayObject)
         leaf.set(PDFName("Rotate"), .integer(Int64(attrs.rotate)))
         if let res = attrs.resources { leaf.set(PDFName("Resources"), .dictionary(res)) }
         await store.define(leafRef, .dictionary(leaf))

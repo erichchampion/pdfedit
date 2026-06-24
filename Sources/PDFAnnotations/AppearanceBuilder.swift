@@ -18,7 +18,7 @@ public enum AppearanceBuilder {
         var pairs: [(PDFName, PDFObject)] = [
             (PDFName("Type"), .name(PDFName("XObject"))),
             (PDFName("Subtype"), .name(PDFName("Form"))),
-            (PDFName("BBox"), boxArray(bbox)),
+            (PDFName("BBox"), bbox.arrayObject),
             (PDFName("Resources"), .dictionary(resources)),
             (PDFName("Length"), .integer(Int64(content.count))),
         ]
@@ -39,10 +39,4 @@ public enum AppearanceBuilder {
         annot.set(PDFName("AP"), .dictionary(PDFDictionary(pairs: [(PDFName("N"), .dictionary(n))])))
         annot.set(PDFName("AS"), .name(current))
     }
-}
-
-/// A PDF rectangle array (integers where whole). Local to avoid a PDFPages dependency.
-func boxArray(_ rect: PDFRectangle) -> PDFObject {
-    func v(_ d: Double) -> PDFObject { d == d.rounded() ? .integer(Int64(d)) : .real(d) }
-    return .array([v(rect.x0), v(rect.y0), v(rect.x1), v(rect.y1)])
 }

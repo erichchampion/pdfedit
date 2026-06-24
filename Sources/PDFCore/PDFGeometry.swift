@@ -68,4 +68,11 @@ public struct PDFRectangle: Sendable, Hashable {
     }
     public var width: Double { x1 - x0 }
     public var height: Double { y1 - y0 }
+
+    /// The PDF array `[x0 y0 x1 y1]`, integers where whole (e.g. `/Rect`, `/BBox`, `/MediaBox`). The
+    /// inverse of `init?(array:)`.
+    public var arrayObject: PDFObject {
+        func v(_ d: Double) -> PDFObject { d == d.rounded() ? .integer(Int64(d)) : .real(d) }
+        return .array([v(x0), v(y0), v(x1), v(y1)])
+    }
 }

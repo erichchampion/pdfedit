@@ -30,7 +30,7 @@ public struct AnnotationEditor: Sendable {
         var annot = PDFDictionary(pairs: [
             (PDFName("Type"), .name(PDFName("Annot"))),
             (PDFName("Subtype"), .name(PDFName(kind.subtype))),
-            (PDFName("Rect"), boxArray(common.rect)),
+            (PDFName("Rect"), common.rect.arrayObject),
             (PDFName("P"), .reference(pageRef)),
         ])
         if let c = common.contents { annot.set(PDFName("Contents"), .string(PDFString(text: c))) }
