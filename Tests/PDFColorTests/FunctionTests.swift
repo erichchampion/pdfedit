@@ -79,3 +79,24 @@ private func approx(_ a: [Double], _ b: [Double], _ eps: Double = 1e-9) -> Bool 
     #expect(approx(f.evaluate([1.0]), [1.0], 1e-6))
     #expect(approx(f.evaluate([0.5]), [0.5], 1e-6))
 }
+
+@Test func type0SampledBilinear2In1Out() async throws {
+    // 2-input / 1-output over a 2×2 grid (first input varies fastest): corners 0,255,255,0.
+    // The centre is the bilinear blend → 0.5.
+    let stream = PDFStream(
+        dictionary: PDFDictionary(pairs: [
+            (PDFName("FunctionType"), .integer(0)),
+            (PDFName("Domain"), .array([.integer(0), .integer(1), .integer(0), .integer(1)])),
+            (PDFName("Range"), .array([.integer(0), .integer(1)])),
+            (PDFName("Size"), .array([.integer(2), .integer(2)])),
+            (PDFName("BitsPerSample"), .integer(8)),
+            (PDFName("Length"), .integer(4)),
+        ]),
+        rawData: [0x00, 0xFF, 0xFF, 0x00])
+    let store = PDFObjectStore()
+    let f = try await PDFFunction.parse(.reference(await store.add(.stream(stream))), store: store)
+    #expect(approx(f.evaluate([0.0, 0.0]), [0.0], 1e-6))
+    #expect(approx(f.evaluate([1.0, 0.0]), [1.0], 1e-6))
+    #expect(approx(f.evaluate([0.0, 1.0]), [1.0], 1e-6))
+    #expect(approx(f.evaluate([0.5, 0.5]), [0.5], 1e-6))
+}
