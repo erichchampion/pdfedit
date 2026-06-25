@@ -17,7 +17,9 @@ import PDFCore
 public struct SaveOptions: Sendable {
     public enum Mode: Sendable {
         case incremental                      // §19.3
-        case fullRewrite                      // §19.4 (object-stream/xref-stream compaction TBD)
+        case fullRewrite                      // §19.4 (ObjStm/XRef-stream compaction is an optional
+                                              // §19.4.2 size optimization; the full rewrite is correct
+                                              // and complete uncompressed, so it is intentionally deferred)
         case sanitizing                       // §19.5 — full rewrite + no-residue contract
     }
     public var mode: Mode

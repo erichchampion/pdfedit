@@ -45,12 +45,21 @@ public actor PDFObjectStore {
     public static func open(_ bytes: [UInt8]) throws -> PDFObjectStore {
         if let xref = try? CrossReferenceReader(bytes).load(),
            xref.trailer[PDFName("Root")] != nil {
+            try requireUnencrypted(xref.trailer)
             return PDFObjectStore(bytes: bytes, xref: xref)
         }
         guard let (rebuilt, report) = RecoveryEngine.rebuild(bytes) else {
             throw PDFError.malformed("unrecoverable: no recoverable objects or document root")
         }
+        try requireUnencrypted(rebuilt.trailer)
         return PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
+    }
+
+    /// Encryption (§6) is detected even though decryption is deferred: an encrypted document is
+    /// reported as `needsPassword` (§20.3/§20.11) rather than surfacing later as a confusing
+    /// stream-decode failure. The trailer is plaintext, so `/Encrypt` is readable at open time.
+    private static func requireUnencrypted(_ trailer: PDFDictionary) throws {
+        if trailer[PDFName("Encrypt")] != nil { throw PDFError.needsPassword }
     }
 
     // MARK: - resolution (§2.4.3, §4.3)

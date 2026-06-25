@@ -117,8 +117,12 @@ public struct ContentExcisor: Sendable {
             case let .operand(o):
                 operands.append(o)
             case let .inlineImage(dict, data):
-                // Inline images are re-emitted verbatim (XObject images go through ImageResampler;
-                // inline-image excision is a declared seam, §17.4.2).
+                // Inline-image sample excision is a declared seam (§17.4.2); but a verbatim re-emit of
+                // an inline image that OVERLAPS a region would be a residue. Fail closed (consistent
+                // with the font/stream fail-closed contract) when it overlaps; otherwise re-emit.
+                if inlineImageOverlaps(regions, state.ctm) {
+                    throw PDFError.unsupportedFeature("redaction: inline image overlaps a redacted region")
+                }
                 out.append(contentsOf: reconstructInlineImage(dict, data))
                 operands.removeAll()
             case let .op(op):
@@ -396,6 +400,18 @@ func rebindXObject(_ name: PDFName, to newRef: PDFRef, inOwner ownerRef: PDFRef,
     } else if let stream = obj.streamValue {
         await store.define(ownerRef, .stream(PDFStream(dictionary: await updated(stream.dictionary), rawData: stream.rawData)))
     }
+}
+
+/// Whether an inline image's device placement (the unit square mapped by `ctm`) intersects any
+/// region's bounding rectangle (§17.4.2 overlap test for the fail-closed inline-image guard).
+func inlineImageOverlaps(_ regions: [RedactionRegion], _ ctm: PDFMatrix) -> Bool {
+    let corners = [PDFPoint(0, 0), PDFPoint(1, 0), PDFPoint(1, 1), PDFPoint(0, 1)].map { ctm.transform($0) }
+    let xs = corners.map(\.x), ys = corners.map(\.y)
+    let box = PDFRectangle(x0: xs.min() ?? 0, y0: ys.min() ?? 0, x1: xs.max() ?? 0, y1: ys.max() ?? 0)
+    func intersects(_ a: PDFRectangle, _ b: PDFRectangle) -> Bool {
+        !(a.x1 < b.x0 || b.x1 < a.x0 || a.y1 < b.y0 || b.y1 < a.y0)
+    }
+    return regions.contains { intersects($0.boundingRect, box) }
 }
 
 /// Reconstruct an inline image (`BI … ID <data> EI`) verbatim from its parsed dict + raw bytes.
