@@ -25,14 +25,26 @@ public enum PDFCrypto {
         guard let fileKey = handler.authenticate(password: Array(password.utf8)) else {
             throw PDFError.needsPassword
         }
-        await store.markEncrypted(encryptObject: encryptRef?.number)
+        // The /Encrypt dict is normally indirect. If it is inline (a direct dict — legal but
+        // discouraged), promote it to an indirect object so the writer can skip it and re-encrypt the
+        // rest; otherwise a save would have no /Encrypt object to exclude and would emit plaintext.
+        let encryptObjectNumber: Int
+        if let number = encryptRef?.number {
+            encryptObjectNumber = number
+        } else {
+            let ref = await store.allocate()
+            await store.define(ref, .dictionary(encDict))
+            await store.updateTrailer(PDFName("Encrypt"), .reference(ref))
+            encryptObjectNumber = ref.number
+        }
+
+        await store.markEncrypted(encryptObject: encryptObjectNumber)
         let cipher = StandardCipher(info: info, fileKey: fileKey)
         await store.installDecryptor(cipher)
         // Re-encrypt on save (§6.7): retain the handler as the writer's encryptor so a later save
-        // re-encrypts new/changed objects under the same file key, keeping the same /Encrypt and /ID.
-        if let encryptNumber = encryptRef?.number {
-            await store.installEncryptor(cipher, encryptObject: encryptNumber)
-        }
+        // re-encrypts new/changed objects under the same file key, keeping the same /Encrypt and /ID
+        // (the same key as the on-disk bytes, so an incremental save stays consistent).
+        await store.installEncryptor(cipher, encryptObject: encryptObjectNumber)
         return store
     }
 
