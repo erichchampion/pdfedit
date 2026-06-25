@@ -55,6 +55,25 @@ enum CryptoPrimitives {
               key: key, iv: iv, data: data, blockPadded: true)
     }
 
+    /// AES-CBC with NO padding (input MUST be a multiple of 16) — used by the revision-6 hash and the
+    /// /UE//OE file-key recovery (§6.5.5).
+    static func aesCBCEncryptNoPad(key: [UInt8], iv: [UInt8], _ data: [UInt8]) -> [UInt8]? {
+        crypt(operation: kCCEncrypt, algorithm: kCCAlgorithmAES, options: 0, key: key, iv: iv, data: data, blockPadded: false)
+    }
+    static func aesCBCDecryptNoPad(key: [UInt8], iv: [UInt8], _ data: [UInt8]) -> [UInt8]? {
+        crypt(operation: kCCDecrypt, algorithm: kCCAlgorithmAES, options: 0, key: key, iv: iv, data: data, blockPadded: false)
+    }
+
+    /// AES-ECB with NO padding — used for the revision-6 /Perms block (§6.3.2).
+    static func aesECBEncryptNoPad(key: [UInt8], _ data: [UInt8]) -> [UInt8]? {
+        crypt(operation: kCCEncrypt, algorithm: kCCAlgorithmAES, options: kCCOptionECBMode,
+              key: key, iv: nil, data: data, blockPadded: false)
+    }
+    static func aesECBDecryptNoPad(key: [UInt8], _ data: [UInt8]) -> [UInt8]? {
+        crypt(operation: kCCDecrypt, algorithm: kCCAlgorithmAES, options: kCCOptionECBMode,
+              key: key, iv: nil, data: data, blockPadded: false)
+    }
+
     /// One-shot CommonCrypto call; returns nil on a crypto error (never traps).
     private static func crypt(operation: Int, algorithm: Int, options: Int,
                               key: [UInt8], iv: [UInt8]?, data: [UInt8], blockPadded: Bool) -> [UInt8]? {

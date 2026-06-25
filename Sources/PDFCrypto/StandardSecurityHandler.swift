@@ -114,6 +114,52 @@ enum StandardCrypto {
         return data
     }
 
+    /// The revision-6 iterated hash (ISO 32000-2 §7.6.4.3.4): SHA-256 seed, then rounds that AES-128-CBC
+    /// a 64×-repeated block and pick the next digest among SHA-256/384/512 by `sum(E[0..16]) % 3`,
+    /// stopping once `round ≥ 64` and the last byte of `E` ≤ `round − 32`. `extra` is empty for the
+    /// user path and `/U[0..48]` for the owner path.
+    static func hashR6(password: [UInt8], salt: [UInt8], extra: [UInt8]) -> [UInt8] {
+        var k = CryptoPrimitives.sha256(password + salt + extra)
+        var round = 0
+        while true {
+            let block = password + k + extra
+            var k1 = [UInt8](); k1.reserveCapacity(block.count * 64)
+            for _ in 0..<64 { k1 += block }
+            let e = CryptoPrimitives.aesCBCEncryptNoPad(key: Array(k.prefix(16)), iv: Array(k[16..<32]), k1) ?? []
+            let mod = e.prefix(16).reduce(0) { $0 + Int($1) } % 3
+            k = mod == 0 ? CryptoPrimitives.sha256(e) : (mod == 1 ? CryptoPrimitives.sha384(e) : CryptoPrimitives.sha512(e))
+            round += 1
+            if round >= 64, let last = e.last, Int(last) <= round - 32 { break }
+        }
+        return Array(k.prefix(32))
+    }
+
+    /// Forward revision-6 construction (§6.5.5): from the passwords and a chosen 256-bit file key,
+    /// produce /U, /O, /UE, /OE (random salts). Shared by encrypt-on-write (O.6) and tests.
+    static func buildR6Auth(userPassword: [UInt8], ownerPassword: [UInt8], fileKey: [UInt8])
+        -> (u: [UInt8], o: [UInt8], ue: [UInt8], oe: [UInt8]) {
+        var rng = SystemRandomNumberGenerator()
+        func salt() -> [UInt8] { (0..<8).map { _ in UInt8.random(in: 0...255, using: &rng) } }
+        let zeros = [UInt8](repeating: 0, count: 16)
+        let uvs = salt(), uks = salt(), ovs = salt(), oks = salt()
+        let u = hashR6(password: userPassword, salt: uvs, extra: []) + uvs + uks
+        let ue = CryptoPrimitives.aesCBCEncryptNoPad(key: hashR6(password: userPassword, salt: uks, extra: []), iv: zeros, fileKey) ?? []
+        let o = hashR6(password: ownerPassword, salt: ovs, extra: u) + ovs + oks
+        let oe = CryptoPrimitives.aesCBCEncryptNoPad(key: hashR6(password: ownerPassword, salt: oks, extra: u), iv: zeros, fileKey) ?? []
+        return (u, o, ue, oe)
+    }
+
+    /// The encrypted /Perms block (§6.3.2): P + 0xFFFFFFFF + EncryptMetadata flag + "adb" + random,
+    /// AES-256-ECB-encrypted under the file key.
+    static func permsR6(p: Int32, encryptMetadata: Bool, fileKey: [UInt8]) -> [UInt8] {
+        var rng = SystemRandomNumberGenerator()
+        let pp = UInt32(bitPattern: p)
+        var block: [UInt8] = [UInt8(pp & 0xFF), UInt8((pp >> 8) & 0xFF), UInt8((pp >> 16) & 0xFF), UInt8((pp >> 24) & 0xFF),
+                              0xFF, 0xFF, 0xFF, 0xFF, encryptMetadata ? 0x54 : 0x46, 0x61, 0x64, 0x62]   // 'T'/'F', "adb"
+        block += (0..<4).map { _ in UInt8.random(in: 0...255, using: &rng) }
+        return CryptoPrimitives.aesECBEncryptNoPad(key: fileKey, block) ?? []
+    }
+
     /// Algorithm 1 — the per-object key for RC4/AESV2 (§6.5.4).
     static func objectKey(fileKey: [UInt8], object: PDFRef, aesV2: Bool) -> [UInt8] {
         var input = fileKey
@@ -129,11 +175,32 @@ struct StandardSecurityHandler: Sendable {
     let info: EncryptionInfo
     let id0: [UInt8]
 
-    /// Try the password as a user, then owner; nil if neither validates. R6 lands in O.4.
+    /// Try the password as a user, then owner; nil if neither validates.
     func authenticate(password: [UInt8]) -> [UInt8]? {
-        guard info.r <= 4 else { return nil }   // R5/R6 → O.4
+        if info.r >= 5 { return authenticateR6(password: password) }
         if let key = authenticateUser(password: password) { return key }
         return authenticateOwner(password: password)
+    }
+
+    /// Revision-6 (AES-256) authentication (§6.5.5): /U and /O each pack a 32-byte hash + 8-byte
+    /// validation salt + 8-byte key salt; on a hash match the single file key is recovered by
+    /// AES-256-CBC-decrypting /UE (user) or /OE (owner) under a key-salt hash.
+    func authenticateR6(password: [UInt8]) -> [UInt8]? {
+        guard info.u.count >= 48, info.o.count >= 48, let ue = info.ue, let oe = info.oe else { return nil }
+        let u48 = Array(info.u.prefix(48))
+        let zeros = [UInt8](repeating: 0, count: 16)
+
+        // User path.
+        if Array(StandardCrypto.hashR6(password: password, salt: Array(info.u[32..<40]), extra: []).prefix(32)) == Array(info.u.prefix(32)) {
+            let ikey = StandardCrypto.hashR6(password: password, salt: Array(info.u[40..<48]), extra: [])
+            return CryptoPrimitives.aesCBCDecryptNoPad(key: ikey, iv: zeros, ue)
+        }
+        // Owner path (the owner hash binds /U).
+        if Array(StandardCrypto.hashR6(password: password, salt: Array(info.o[32..<40]), extra: u48).prefix(32)) == Array(info.o.prefix(32)) {
+            let ikey = StandardCrypto.hashR6(password: password, salt: Array(info.o[40..<48]), extra: u48)
+            return CryptoPrimitives.aesCBCDecryptNoPad(key: ikey, iv: zeros, oe)
+        }
+        return nil
     }
 
     private func matchesU(_ fileKey: [UInt8]) -> Bool {
