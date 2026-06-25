@@ -115,9 +115,23 @@ public actor PDFObjectStore {
     }
 
     /// The encryptor + `/Encrypt` object number for the writer, or nil when not encrypting on write.
+    /// Gated on the trailer still declaring `/Encrypt`: removing `/Encrypt` disables write-encryption
+    /// (so a caller can save a decrypted copy) rather than leaving ciphertext bodies under no handler.
     public func encryptionForWrite() -> (encryptor: PDFObjectEncryptor, encryptObject: Int)? {
-        guard let encryptor, let encryptObjectNumber else { return nil }
+        guard let encryptor, let encryptObjectNumber, trailer[PDFName("Encrypt")] != nil else { return nil }
         return (encryptor, encryptObjectNumber)
+    }
+
+    /// Tear down encrypt-on-write (the inverse of `installEncryptor`): drop the encryptor, delete the
+    /// `/Encrypt` object, and clear the trailer `/Encrypt` so the next (full-rewrite) save emits a
+    /// plaintext document. The decryptor stays installed so existing content still reads. Requires a
+    /// full rewrite because the on-disk prefix is still ciphertext (§6.7).
+    public func removeEncryptor() {
+        if let number = encryptObjectNumber { delete(PDFRef(number, 0)) }
+        trailer.set(PDFName("Encrypt"), .null)
+        encryptor = nil
+        encryptObjectNumber = nil
+        encryptionRequiresFullRewrite = true
     }
 
     /// Whether the encryption policy was set/changed after open so the original prefix is stale and a

@@ -142,6 +142,14 @@ public enum PDFCrypto {
                                      encryptObject: ref.number, requiresFullRewrite: true)
     }
 
+    /// Remove encryption so the next (full-rewrite) save produces a plaintext document (Ch 06 §6.7).
+    /// Content opened under a password stays readable (the decryptor is retained); the `/Encrypt` dict
+    /// and trailer entry are dropped. The save MUST be a full rewrite — the on-disk prefix is ciphertext,
+    /// so an incremental save would throw.
+    public static func removeEncryption(_ store: PDFObjectStore) async {
+        await store.removeEncryptor()
+    }
+
     /// A standard `/P` value (§6.6 / Table 22): every reserved/high bit set to 1, the two low bits
     /// cleared, and each named permission bit cleared when the operation is denied.
     static func standardP(_ permissions: PDFPermissions) -> Int32 {

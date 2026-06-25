@@ -60,6 +60,13 @@ public final class Document: Sendable {
                                       permissions: permissions, algorithm: algorithm)
     }
 
+    /// Remove encryption so the next `save(.fullRewrite)` produces a plaintext copy (Ch 06 §6.7).
+    /// Already-loaded content stays readable. The save must be a full rewrite (an incremental save of a
+    /// previously-encrypted document throws).
+    public func removeEncryption() async {
+        await PDFCrypto.removeEncryption(store)
+    }
+
     /// The advisory permissions declared by an encrypted document (nil if unencrypted, §6.6). Reported,
     /// never enforced — the caller decides whether to honour them.
     public var permissions: PDFPermissions? {

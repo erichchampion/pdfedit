@@ -68,6 +68,28 @@ private func assertEncryptsOnWrite(_ algorithm: PDFCrypto.Algorithm) async throw
 @Test func encryptOnWrite_aes128() async throws { try await assertEncryptsOnWrite(.aes128) }
 @Test func encryptOnWrite_aes256() async throws { try await assertEncryptsOnWrite(.aes256) }
 
+@Test func removeEncryptionSavesPlaintextCopy() async throws {
+    // Build an encrypted document.
+    let plain = try await PDFCrypto.open(data: plaintextPDF(marker: "Secret", body: "BT (body) Tj ET"))
+    await PDFCrypto.setEncryption(plain, userPassword: "pw", algorithm: .aes128)
+    let encrypted = try await PDFWriter.save(plain, options: .fullRewrite)
+
+    // Open with the password, strip encryption, and save a plaintext copy.
+    let store = try await PDFCrypto.open(data: encrypted, password: "pw")
+    await PDFCrypto.removeEncryption(store)
+
+    // Incremental save is refused (prefix is still ciphertext); full rewrite emits plaintext.
+    do { _ = try await PDFWriter.save(store, options: .incremental); Issue.record("should require full rewrite") }
+    catch is PDFError { }
+    let decrypted = try await PDFWriter.save(store, options: .fullRewrite)
+
+    // The copy opens with NO password and its content is present in cleartext.
+    let reopened = try await PDFCrypto.open(data: decrypted)
+    #expect(await reopened.isEncrypted == false)
+    #expect(await pageMarker(reopened) == "Secret")
+    #expect(decrypted.contains(subsequence: Array("Secret".utf8)), "decrypted copy should hold plaintext")
+}
+
 @Test func setEncryptionThenIncrementalSaveFailsClosed() async throws {
     // Open a plaintext file from disk (sourceBytes set), then newly encrypt it.
     let store = try await PDFCrypto.open(data: plaintextPDF(marker: "Secret", body: "BT (x) Tj ET"))
