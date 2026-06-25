@@ -68,6 +68,23 @@ private func assertEncryptsOnWrite(_ algorithm: PDFCrypto.Algorithm) async throw
 @Test func encryptOnWrite_aes128() async throws { try await assertEncryptsOnWrite(.aes128) }
 @Test func encryptOnWrite_aes256() async throws { try await assertEncryptsOnWrite(.aes256) }
 
+@Test func setEncryptionPreservesExistingID0() async throws {
+    // A from-scratch document whose trailer carries a non-16-byte /ID (some producers emit 8 bytes).
+    let store = try await PDFCrypto.open(data: plaintextPDF(marker: "M", body: "BT (x) Tj ET"))
+    let id0: [UInt8] = [1, 2, 3, 4, 5, 6, 7, 8]
+    await store.updateTrailer(PDFName("ID"),
+        .array([.string(PDFString(bytes: id0)), .string(PDFString(bytes: id0))]))
+
+    await PDFCrypto.setEncryption(store, userPassword: "pw", algorithm: .aes128)
+
+    // The permanent /ID[0] is preserved (not regenerated), and the file still round-trips.
+    #expect(await store.trailer[PDFName("ID")]?.arrayValue?.first?.stringValue?.bytes == id0)
+    let saved = try await PDFWriter.save(store, options: .fullRewrite)
+    let reopened = try await PDFCrypto.open(data: saved, password: "pw")
+    #expect(await reopened.trailer[PDFName("ID")]?.arrayValue?.first?.stringValue?.bytes == id0)
+    #expect(await pageMarker(reopened) == "M")
+}
+
 @Test func removeEncryptionSavesPlaintextCopy() async throws {
     // Build an encrypted document.
     let plain = try await PDFCrypto.open(data: plaintextPDF(marker: "Secret", body: "BT (body) Tj ET"))

@@ -75,11 +75,12 @@ public enum PDFCrypto {
         let owner = ownerInput.isEmpty ? user : ownerInput
         let p = permissions.standardPValue
 
-        // /ID: reuse the document's first element if present, else generate one and publish it (the
-        // file key for R≤4 depends on /ID, so it must be fixed before key derivation).
+        // /ID: reuse the document's existing first element verbatim if present (it is the permanent
+        // file identifier and must not be mutated, §14.4); only when /ID is absent do we generate and
+        // publish one. The file key for R≤4 depends on /ID[0], so it is fixed before key derivation.
         let trailer = await store.trailer
         let id0: [UInt8]
-        if let existing = trailer[PDFName("ID")]?.arrayValue?.first?.stringValue?.bytes, existing.count == 16 {
+        if let existing = trailer[PDFName("ID")]?.arrayValue?.first?.stringValue?.bytes {
             id0 = existing
         } else {
             var rng = SystemRandomNumberGenerator()
