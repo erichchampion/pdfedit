@@ -20,6 +20,19 @@ import PDFCore
     #expect(!perms.grants(.annotate))
 }
 
+@Test func standardPValueDerivesTable22Bits() {
+    // Owner session: all named bits set + reserved high bits → 0xFFFFFFFC (-4).
+    #expect(PDFPermissions.all.standardPValue == Int32(bitPattern: 0xFFFFFFFC))
+
+    // Decoding the derived /P grants exactly the operations that were set, nothing more.
+    for perms: PDFPermissions in [.all, [.print, .copy], [], [.modify, .assemble]] {
+        let decoded = PDFPermissions(p: perms.standardPValue)
+        for op in PDFPermissions.named {
+            #expect(decoded.grants(op) == perms.contains(op), "bit mismatch for \(op.rawValue)")
+        }
+    }
+}
+
 @Test func permissionsAllGrantsEverything() {
     let all = PDFPermissions.all
     for op: PDFPermissions in [.print, .modify, .copy, .annotate, .fillForms, .accessibilityExtract, .assemble, .highQualityPrint] {

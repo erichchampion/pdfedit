@@ -26,15 +26,27 @@ public struct PDFPermissions: OptionSet, Sendable, Hashable {
     /// Print to a high-resolution device (bit 12).
     public static let highQualityPrint = PDFPermissions(rawValue: 1 << 11)
 
-    /// Every standard operation granted — the effective permission set for an owner session (§6.6).
-    public static let all: PDFPermissions =
+    /// The named permission bits (Table 22) — the single source `.all` and the `/P` encoder derive from.
+    public static let named: [PDFPermissions] =
         [.print, .modify, .copy, .annotate, .fillForms, .accessibilityExtract, .assemble, .highQualityPrint]
+
+    /// Every standard operation granted — the effective permission set for an owner session (§6.6).
+    public static let all = PDFPermissions(rawValue: named.reduce(into: Int32(0)) { $0 |= $1.rawValue })
 
     /// Decode a raw /P integer (the high reserved bits are kept verbatim; only the named bits are read).
     public init(p: Int32) { self.rawValue = p }
 
     /// Whether the given operation is permitted.
     public func grants(_ permission: PDFPermissions) -> Bool { contains(permission) }
+
+    /// The conformant `/P` integer for these permissions (§6.6 / Table 22): every reserved/high bit set,
+    /// the two low reserved bits cleared, and each named bit cleared when its operation is denied. The
+    /// single source of truth for the bit layout (shared by encrypt-on-write).
+    public var standardPValue: Int32 {
+        var pp: UInt32 = 0xFFFFFFFF & ~UInt32(0x3)
+        for bit in PDFPermissions.named where !contains(bit) { pp &= ~UInt32(bitPattern: bit.rawValue) }
+        return Int32(bitPattern: pp)
+    }
 }
 
 public extension PDFCrypto {

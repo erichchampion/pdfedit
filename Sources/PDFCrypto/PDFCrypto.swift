@@ -73,7 +73,7 @@ public enum PDFCrypto {
         let user = Array(userPassword.utf8)
         let ownerInput = Array(ownerPassword.utf8)
         let owner = ownerInput.isEmpty ? user : ownerInput
-        let p = standardP(permissions)
+        let p = permissions.standardPValue
 
         // /ID: reuse the document's first element if present, else generate one and publish it (the
         // file key for R≤4 depends on /ID, so it must be fixed before key derivation).
@@ -148,14 +148,5 @@ public enum PDFCrypto {
     /// so an incremental save would throw.
     public static func removeEncryption(_ store: PDFObjectStore) async {
         await store.removeEncryptor()
-    }
-
-    /// A standard `/P` value (§6.6 / Table 22): every reserved/high bit set to 1, the two low bits
-    /// cleared, and each named permission bit cleared when the operation is denied.
-    static func standardP(_ permissions: PDFPermissions) -> Int32 {
-        var pp: UInt32 = 0xFFFFFFFF & ~UInt32(0x3)
-        let named: [UInt32] = [4, 8, 16, 32, 256, 512, 1024, 2048]
-        for bit in named where (UInt32(bitPattern: permissions.rawValue) & bit) == 0 { pp &= ~bit }
-        return Int32(bitPattern: pp)
     }
 }
