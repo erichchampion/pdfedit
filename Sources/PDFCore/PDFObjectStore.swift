@@ -21,6 +21,13 @@ public actor PDFObjectStore {
     private var objStmCache: [Int: [Int: PDFObject]] = [:]
     private var highestNumber: Int
 
+    // Encryption (spec Ch 06): a decryptor (read) is applied at materialization; an encryptor (write)
+    // is applied at serialization by the writer. Both are nil for unencrypted documents.
+    private var decryptor: PDFObjectDecryptor?
+    private var encryptObjectNumber: Int?   // the /Encrypt dict object — never decrypted (§6.2)
+    /// True if the document was opened from an encrypted file (whether or not a decryptor is installed).
+    public private(set) var isEncrypted: Bool = false
+
     init(bytes: [UInt8]?, xref: XRefResult, repairReport: RepairReport? = nil) {
         self.sourceBytes = bytes
         self.entries = xref.entries
@@ -55,11 +62,41 @@ public actor PDFObjectStore {
         return PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
     }
 
-    /// Encryption (§6) is detected even though decryption is deferred: an encrypted document is
-    /// reported as `needsPassword` (§20.3/§20.11) rather than surfacing later as a confusing
-    /// stream-decode failure. The trailer is plaintext, so `/Encrypt` is readable at open time.
+    /// Encryption (§6): callers without crypto support get `needsPassword` rather than a confusing
+    /// later decode failure. The security handler instead uses `openAllowingEncrypted` and installs a
+    /// decryptor once a password authenticates. The trailer is plaintext, so `/Encrypt` is readable.
     private static func requireUnencrypted(_ trailer: PDFDictionary) throws {
         if trailer[PDFName("Encrypt")] != nil { throw PDFError.needsPassword }
+    }
+
+    /// Open without throwing on `/Encrypt` (SPI for the security handler, spec Ch 06). The returned
+    /// store is flagged `isEncrypted`; its content stays ciphertext until `installDecryptor` is called,
+    /// so the handler MUST read only the (plaintext) `/Encrypt` dict + `/ID` before installing.
+    public static func openAllowingEncrypted(_ bytes: [UInt8]) throws -> PDFObjectStore {
+        let store: PDFObjectStore
+        if let xref = try? CrossReferenceReader(bytes).load(), xref.trailer[PDFName("Root")] != nil {
+            store = PDFObjectStore(bytes: bytes, xref: xref)
+        } else {
+            guard let (rebuilt, report) = RecoveryEngine.rebuild(bytes) else {
+                throw PDFError.malformed("unrecoverable: no recoverable objects or document root")
+            }
+            store = PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
+        }
+        return store
+    }
+
+    /// Mark the document encrypted and remember the `/Encrypt` dict object number (never decrypted).
+    public func markEncrypted(encryptObject: Int?) {
+        isEncrypted = true
+        encryptObjectNumber = encryptObject
+    }
+
+    /// Install the decryptor that materialization applies per object (spec §6.2/§6.7). Clears any
+    /// already-cached on-disk objects so they re-materialize decrypted.
+    public func installDecryptor(_ decryptor: PDFObjectDecryptor) {
+        self.decryptor = decryptor
+        cache.removeAll()
+        objStmCache.removeAll()
     }
 
     // MARK: - resolution (§2.4.3, §4.3)
@@ -101,8 +138,15 @@ public actor PDFObjectStore {
         switch entry {
         case .free:
             return .null
-        case let .uncompressed(offset, _):
-            guard let value = parseAt(offset, bytes: bytes) else { return .null }
+        case let .uncompressed(offset, generation):
+            guard var value = parseAt(offset, bytes: bytes) else { return .null }
+            // Decryption is the outermost transform of an on-disk object's strings + stream body
+            // (§6.2), applied per (number, generation). The /Encrypt dict and /XRef streams are never
+            // decrypted; /ObjStm members (the .compressed case) are already plaintext.
+            if let decryptor, number != encryptObjectNumber, !ObjectCrypto.isCrossReferenceStream(value) {
+                value = ObjectCrypto.transform(value, ref: PDFRef(number, generation),
+                                               string: decryptor.decryptString, stream: decryptor.decryptStream)
+            }
             cache[number] = value
             return value
         case let .compressed(streamObject, _):
