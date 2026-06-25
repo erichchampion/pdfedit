@@ -54,4 +54,28 @@ enum Harness {
         await store.setTrailer(trailer)
         return try await PDFWriter.save(store, options: .fullRewrite)
     }
+
+    /// Author a minimal valid N-page document from scratch.
+    static func buildMultiPagePDF(_ n: Int) async throws -> [UInt8] {
+        let store = PDFObjectStore()
+        let catalog = await store.allocate(), pages = await store.allocate()
+        var leaves: [PDFRef] = []
+        for _ in 0..<n {
+            let ref = await store.allocate(); leaves.append(ref)
+            await store.define(ref, .dictionary(PDFDictionary(pairs: [
+                (PDFName("Type"), .name(PDFName("Page"))), (PDFName("Parent"), .reference(pages)),
+                (PDFName("MediaBox"), .array([.integer(0), .integer(0), .integer(612), .integer(792)])),
+            ])))
+        }
+        await store.define(pages, .dictionary(PDFDictionary(pairs: [
+            (PDFName("Type"), .name(PDFName("Pages"))),
+            (PDFName("Kids"), .array(leaves.map { .reference($0) })), (PDFName("Count"), .integer(Int64(n))),
+        ])))
+        await store.define(catalog, .dictionary(PDFDictionary(pairs: [
+            (PDFName("Type"), .name(PDFName("Catalog"))), (PDFName("Pages"), .reference(pages)),
+        ])))
+        var trailer = PDFDictionary(); trailer.set(PDFName("Root"), .reference(catalog))
+        await store.setTrailer(trailer)
+        return try await PDFWriter.save(store, options: .fullRewrite)
+    }
 }

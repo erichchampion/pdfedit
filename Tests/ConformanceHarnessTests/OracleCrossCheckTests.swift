@@ -34,6 +34,16 @@ import CoreGraphics
     #expect(await store.pageCount() == 1)
 }
 
+@Test func appleOraclesAgreeOnPageCount() async throws {
+    // The library, PDFKit, and CoreGraphics must all see the same page count on a multi-page doc.
+    let bytes = try await Harness.buildMultiPagePDF(3)
+    let data = Data(bytes)
+    let store = try PDFObjectStore.open(bytes)
+    #expect(await store.pageCount() == 3)
+    #expect(PDFDocument(data: data)?.pageCount == 3)
+    #expect(CGDataProvider(data: data as CFData).flatMap { CGPDFDocument($0) }?.numberOfPages == 3)
+}
+
 @Test func appleOraclesAgreeOnMediaBox() async throws {
     let bytes = try await Harness.buildOnePagePDF()
     let data = Data(bytes)
