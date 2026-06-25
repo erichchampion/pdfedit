@@ -83,12 +83,21 @@ public enum PDFWriter {
         let prev = PDFFileStructure.lastStartxrefOffset(original)
         let size = await store.highestObjectNumber() + 1
 
-        // Append changed object bodies, recording their offsets (§19.3.1).
+        // Append changed object bodies, recording their offsets (§19.3.1). When the document is
+        // encrypted, re-encrypt each new/changed object with the same file key (§6.7); the original
+        // /Encrypt and /ID are preserved in the prefix, so prior objects stay decryptable.
+        let encryption = await store.encryptionForWrite()
         var offsets: [Int: Int] = [:]
         for number in edits.keys.sorted() {
             offsets[number] = out.count
+            var value = edits[number]!
+            if let encryption, number != encryption.encryptObject, !ObjectCrypto.isCrossReferenceStream(value) {
+                value = ObjectCrypto.transform(value, ref: PDFRef(number, 0),
+                                               string: encryption.encryptor.encryptString,
+                                               stream: encryption.encryptor.encryptStream)
+            }
             out.append(contentsOf: "\(number) 0 obj\n".utf8)
-            PDFSerializer.serialize(edits[number]!, into: &out)
+            PDFSerializer.serialize(value, into: &out)
             out.append(contentsOf: "\nendobj\n".utf8)
         }
 
@@ -139,6 +148,10 @@ public enum PDFWriter {
         enqueue(rootRef)
         let infoRef = trailer[PDFName("Info")]?.referenceValue
         if let infoRef { enqueue(infoRef) }
+        // The /Encrypt dict is referenced from the trailer, not from /Root — retain it explicitly when
+        // encrypting on write so it survives the mark-from-roots GC (§6.7).
+        let encryption = await store.encryptionForWrite()
+        if let encryption { enqueue(PDFRef(encryption.encryptObject, 0)) }
         while let number = stack.popLast() {
             let object = await store.resolve(PDFRef(number, 0))
             for ref in references(in: object) { enqueue(ref) }
@@ -152,10 +165,18 @@ public enum PDFWriter {
         // Header + binary marker comment (§3.3).
         var out: [UInt8] = Array("%PDF-1.7\n".utf8) + [UInt8(ascii: "%"), 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]
 
+        let encryptObjectNew = encryption.flatMap { remap[$0.encryptObject] }   // its post-renumber number
         var offsets: [Int: Int] = [:] // newNumber -> byte offset
         for old in oldNumbers {
             let newNumber = remap[old]!
-            let rewritten = rewrite(await store.resolve(PDFRef(old, 0)), remap)
+            var rewritten = rewrite(await store.resolve(PDFRef(old, 0)), remap)
+            // Encrypt strings + stream body keyed by the *new* object number (the per-object key must
+            // match the number the file ends up with); never the /Encrypt dict itself or an /XRef stream.
+            if let encryption, newNumber != encryptObjectNew, !ObjectCrypto.isCrossReferenceStream(rewritten) {
+                rewritten = ObjectCrypto.transform(rewritten, ref: PDFRef(newNumber, 0),
+                                                   string: encryption.encryptor.encryptString,
+                                                   stream: encryption.encryptor.encryptStream)
+            }
             offsets[newNumber] = out.count
             out.append(contentsOf: "\(newNumber) 0 obj\n".utf8)
             PDFSerializer.serialize(rewritten, into: &out)
@@ -178,6 +199,11 @@ public enum PDFWriter {
             newTrailer.set(PDFName("Info"), .reference(PDFRef(mapped, 0)))
         }
         if let id = trailer[PDFName("ID")] { newTrailer.set(PDFName("ID"), rewrite(id, remap)) }
+        // Carry the (renumbered) /Encrypt reference so the saved file is self-describing (§6.7); /ID and
+        // the /Encrypt object stay cleartext (handled above by skipping the encrypt object).
+        if let encryptObjectNew {
+            newTrailer.set(PDFName("Encrypt"), .reference(PDFRef(encryptObjectNew, 0)))
+        }
 
         out.append(contentsOf: "trailer\n".utf8)
         PDFSerializer.serialize(.dictionary(newTrailer), into: &out)

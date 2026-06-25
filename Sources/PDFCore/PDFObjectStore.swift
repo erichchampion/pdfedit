@@ -24,7 +24,8 @@ public actor PDFObjectStore {
     // Encryption (spec Ch 06): a decryptor (read) is applied at materialization; an encryptor (write)
     // is applied at serialization by the writer. Both are nil for unencrypted documents.
     private var decryptor: PDFObjectDecryptor?
-    private var encryptObjectNumber: Int?   // the /Encrypt dict object — never decrypted (§6.2)
+    private var encryptor: PDFObjectEncryptor?   // applied by the writer at serialization (§6.7)
+    private var encryptObjectNumber: Int?   // the /Encrypt dict object — never en/decrypted (§6.2)
     /// True if the document was opened from an encrypted file (whether or not a decryptor is installed).
     public private(set) var isEncrypted: Bool = false
 
@@ -97,6 +98,20 @@ public actor PDFObjectStore {
         self.decryptor = decryptor
         cache.removeAll()
         objStmCache.removeAll()
+    }
+
+    /// Install the encryptor the writer applies per object at serialization (encrypt-on-write, §6.7),
+    /// recording the `/Encrypt` dict object (never itself encrypted). Marks the document encrypted.
+    public func installEncryptor(_ encryptor: PDFObjectEncryptor, encryptObject: Int) {
+        self.encryptor = encryptor
+        self.encryptObjectNumber = encryptObject
+        isEncrypted = true
+    }
+
+    /// The encryptor + `/Encrypt` object number for the writer, or nil when not encrypting on write.
+    public func encryptionForWrite() -> (encryptor: PDFObjectEncryptor, encryptObject: Int)? {
+        guard let encryptor, let encryptObjectNumber else { return nil }
+        return (encryptor, encryptObjectNumber)
     }
 
     // MARK: - resolution (§2.4.3, §4.3)

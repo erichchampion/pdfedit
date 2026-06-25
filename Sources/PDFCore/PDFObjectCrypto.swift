@@ -15,12 +15,12 @@ public protocol PDFObjectEncryptor: Sendable {
     func encryptStream(_ bytes: [UInt8], object: PDFRef) -> [UInt8]
 }
 
-enum ObjectCrypto {
+public enum ObjectCrypto {
     /// Apply a per-object transform to every string in an object and to a stream's body. The same
     /// walk serves decryption (read) and encryption (write); `string`/`stream` are the primitives.
-    static func transform(_ object: PDFObject, ref: PDFRef,
-                          string: (_ bytes: [UInt8], _ ref: PDFRef) -> [UInt8],
-                          stream: (_ bytes: [UInt8], _ ref: PDFRef) -> [UInt8]) -> PDFObject {
+    public static func transform(_ object: PDFObject, ref: PDFRef,
+                                 string: (_ bytes: [UInt8], _ ref: PDFRef) -> [UInt8],
+                                 stream: (_ bytes: [UInt8], _ ref: PDFRef) -> [UInt8]) -> PDFObject {
         switch object {
         case let .string(s):
             return .string(PDFString(bytes: string(s.bytes, ref)))
@@ -48,7 +48,7 @@ enum ObjectCrypto {
 
     /// A `/Type /XRef` stream is never encrypted (§7.5.8.2) — it must be readable before the document
     /// is known to be encrypted.
-    static func isCrossReferenceStream(_ object: PDFObject) -> Bool {
+    public static func isCrossReferenceStream(_ object: PDFObject) -> Bool {
         object.streamValue?.dictionary[PDFName("Type")] == .name(PDFName("XRef"))
     }
 }

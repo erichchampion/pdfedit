@@ -150,7 +150,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PDFCoreTests",
-            dependencies: ["PDFCore", "PDFFilters"],
+            dependencies: ["PDFCore", "PDFFilters", "PDFWriter"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
