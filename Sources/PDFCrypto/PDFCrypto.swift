@@ -124,7 +124,10 @@ public enum PDFCrypto {
         let info = EncryptionInfo(v: v, r: r, o: o, u: u, oe: oe, ue: ue, perms: perms, p: p,
                                   keyLengthBytes: keyBytes, encryptMetadata: true,
                                   stringCipher: stringCipher, streamCipher: streamCipher)
-        await store.installEncryptor(StandardCipher(info: info, fileKey: fileKey), encryptObject: ref.number)
+        // requiresFullRewrite: this newly sets/changes the encryption policy, so the original byte
+        // prefix (plaintext, or under a prior key) is stale — an incremental save would corrupt it.
+        await store.installEncryptor(StandardCipher(info: info, fileKey: fileKey),
+                                     encryptObject: ref.number, requiresFullRewrite: true)
     }
 
     /// A standard `/P` value (§6.6 / Table 22): every reserved/high bit set to 1, the two low bits

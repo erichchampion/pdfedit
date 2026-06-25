@@ -74,6 +74,13 @@ public enum PDFWriter {
             // Nothing to append to — fall back to a full rewrite for a from-scratch store.
             return try await saveFullRewrite(store)
         }
+        // Fail closed (no silent mode substitution, §19.2): if encryption was set/changed after open,
+        // the original prefix is no longer consistent with the new policy, so appending to it would
+        // leave inconsistently-keyed objects under a trailer that declares the new /Encrypt (§6.7).
+        if await store.requiresFullRewriteForEncryption() {
+            throw PDFError.unsupportedFeature(
+                "incremental save cannot apply newly-set or changed encryption to pre-existing content; use a full rewrite")
+        }
         var out = original
         if let last = out.last, last != 0x0A, last != 0x0D { out.append(0x0A) }
 

@@ -68,6 +68,24 @@ private func assertEncryptsOnWrite(_ algorithm: PDFCrypto.Algorithm) async throw
 @Test func encryptOnWrite_aes128() async throws { try await assertEncryptsOnWrite(.aes128) }
 @Test func encryptOnWrite_aes256() async throws { try await assertEncryptsOnWrite(.aes256) }
 
+@Test func setEncryptionThenIncrementalSaveFailsClosed() async throws {
+    // Open a plaintext file from disk (sourceBytes set), then newly encrypt it.
+    let store = try await PDFCrypto.open(data: plaintextPDF(marker: "Secret", body: "BT (x) Tj ET"))
+    await PDFCrypto.setEncryption(store, userPassword: "pw", algorithm: .aes128)
+
+    // An incremental save would append encrypted objects onto a plaintext prefix → corruption; it must
+    // throw instead (never silently substitute the mode, §19.2).
+    do {
+        _ = try await PDFWriter.save(store, options: .incremental)
+        Issue.record("incremental save after setEncryption must throw, not corrupt")
+    } catch is PDFError { }
+
+    // A full rewrite is the supported path and round-trips correctly.
+    let saved = try await PDFWriter.save(store, options: .fullRewrite)
+    let reopened = try await PDFCrypto.open(data: saved, password: "pw")
+    #expect(await pageMarker(reopened) == "Secret")
+}
+
 @Test func encryptOnWrite_incrementalKeepsEncryptAndID() async throws {
     let store = try await PDFCrypto.open(data: plaintextPDF(marker: "M", body: "BT (x) Tj ET"))
     await PDFCrypto.setEncryption(store, userPassword: "pw", algorithm: .aes128)

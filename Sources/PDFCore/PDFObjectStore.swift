@@ -26,6 +26,7 @@ public actor PDFObjectStore {
     private var decryptor: PDFObjectDecryptor?
     private var encryptor: PDFObjectEncryptor?   // applied by the writer at serialization (§6.7)
     private var encryptObjectNumber: Int?   // the /Encrypt dict object — never en/decrypted (§6.2)
+    private var encryptionRequiresFullRewrite = false   // set when policy changed after open (§6.7)
     /// True if the document was opened from an encrypted file (whether or not a decryptor is installed).
     public private(set) var isEncrypted: Bool = false
 
@@ -102,10 +103,15 @@ public actor PDFObjectStore {
 
     /// Install the encryptor the writer applies per object at serialization (encrypt-on-write, §6.7),
     /// recording the `/Encrypt` dict object (never itself encrypted). Marks the document encrypted.
-    public func installEncryptor(_ encryptor: PDFObjectEncryptor, encryptObject: Int) {
+    /// `requiresFullRewrite` is true when the encryption policy was newly set or changed after open, so
+    /// the original byte prefix is now stale and an incremental save would corrupt it (§6.7); it is
+    /// false when `open` installs the handler that already matches the on-disk bytes.
+    public func installEncryptor(_ encryptor: PDFObjectEncryptor, encryptObject: Int,
+                                 requiresFullRewrite: Bool = false) {
         self.encryptor = encryptor
         self.encryptObjectNumber = encryptObject
         isEncrypted = true
+        if requiresFullRewrite { encryptionRequiresFullRewrite = true }
     }
 
     /// The encryptor + `/Encrypt` object number for the writer, or nil when not encrypting on write.
@@ -113,6 +119,10 @@ public actor PDFObjectStore {
         guard let encryptor, let encryptObjectNumber else { return nil }
         return (encryptor, encryptObjectNumber)
     }
+
+    /// Whether the encryption policy was set/changed after open so the original prefix is stale and a
+    /// save MUST be a full rewrite (an incremental save would leave inconsistently-keyed prefix bytes).
+    public func requiresFullRewriteForEncryption() -> Bool { encryptionRequiresFullRewrite }
 
     // MARK: - resolution (§2.4.3, §4.3)
 
