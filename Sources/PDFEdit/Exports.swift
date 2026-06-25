@@ -16,3 +16,4 @@
 @_exported import PDFRedaction  // RedactionMark/Region/ApplyOptions
 @_exported import PDFText       // StructuredText, ExtractionOptions, TextMatch
 @_exported import PDFRender     // RenderRequest, RenderedImage
+@_exported import PDFCrypto     // PDFPermissions, PDFCrypto.Algorithm (encryption)

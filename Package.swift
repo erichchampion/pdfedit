@@ -137,7 +137,7 @@ let package = Package(
         // (does NOT depend on PDFKitBridge, §20.13).
         .target(
             name: "PDFEdit",
-            dependencies: ["PDFCore", "PDFWriter", "PDFPages", "PDFAnnotations", "PDFForms",
+            dependencies: ["PDFCore", "PDFWriter", "PDFCrypto", "PDFPages", "PDFAnnotations", "PDFForms",
                            "PDFRedaction", "PDFText", "PDFContent", "PDFRender", "PDFColor",
                            "PDFFonts", "PDFImages", "PDFFilters"],
             swiftSettings: [.swiftLanguageMode(.v6)]
