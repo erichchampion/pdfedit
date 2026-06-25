@@ -121,9 +121,11 @@ enum StandardCrypto {
     static func hashR6(password: [UInt8], salt: [UInt8], extra: [UInt8]) -> [UInt8] {
         var k = CryptoPrimitives.sha256(password + salt + extra)
         var round = 0
+        var k1 = [UInt8]()   // reused across rounds — k's length varies (32/48/64), so refill not in-place
         while true {
             let block = password + k + extra
-            var k1 = [UInt8](); k1.reserveCapacity(block.count * 64)
+            k1.removeAll(keepingCapacity: true)
+            k1.reserveCapacity(block.count * 64)
             for _ in 0..<64 { k1 += block }
             let e = CryptoPrimitives.aesCBCEncryptNoPad(key: Array(k.prefix(16)), iv: Array(k[16..<32]), k1) ?? []
             let mod = e.prefix(16).reduce(0) { $0 + Int($1) } % 3

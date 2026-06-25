@@ -93,6 +93,7 @@ enum CryptoPrimitives {
             }
         }
         guard status == CCCryptorStatus(kCCSuccess) else { return nil }
-        return Array(out.prefix(moved))
+        out.removeLast(out.count - moved)   // trim padding in place (avoids a second allocation)
+        return out
     }
 }
