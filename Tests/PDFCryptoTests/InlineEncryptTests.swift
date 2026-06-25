@@ -6,9 +6,8 @@
 import Testing
 import PDFCore
 import PDFWriter
+import PDFTestSupport
 @testable import PDFCrypto
-
-private func hex(_ bytes: [UInt8]) -> String { bytes.map { String(format: "%02x", $0) }.joined() }
 
 /// A one-page AES-128 PDF whose trailer carries /Encrypt INLINE (no indirect /Encrypt object).
 private func inlineEncryptPDF() -> [UInt8] {
@@ -26,7 +25,7 @@ private func inlineEncryptPDF() -> [UInt8] {
 
     let inlineEncrypt = "<< /Filter /Standard /V 4 /R 4 /Length 128 "
         + "/CF << /StdCF << /CFM /AESV2 /Length 16 >> >> /StmF /StdCF /StrF /StdCF "
-        + "/O <\(hex(o))> /U <\(hex(u))> /P \(p) >>"
+        + "/O <\(Hex.encode(o))> /U <\(Hex.encode(u))> /P \(p) >>"
 
     var data = [UInt8](); func a(_ s: String) { data.append(contentsOf: s.utf8) }
     func pad10(_ n: Int) -> String { let s = String(n); return String(repeating: "0", count: 10 - s.count) + s }
@@ -34,11 +33,11 @@ private func inlineEncryptPDF() -> [UInt8] {
     a("%PDF-1.7\n")
     off[1] = data.count; a("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
     off[2] = data.count; a("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    off[3] = data.count; a("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Marker <\(hex(markerCT))> >>\nendobj\n")
+    off[3] = data.count; a("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Marker <\(Hex.encode(markerCT))> >>\nendobj\n")
     let xref = data.count
     a("xref\n0 4\n0000000000 65535 f \n")
     for i in 1...3 { a(pad10(off[i]) + " 00000 n \n") }
-    a("trailer\n<< /Size 4 /Root 1 0 R /Encrypt \(inlineEncrypt) /ID [<\(hex(id0))> <\(hex(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
+    a("trailer\n<< /Size 4 /Root 1 0 R /Encrypt \(inlineEncrypt) /ID [<\(Hex.encode(id0))> <\(Hex.encode(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
     return data
 }
 

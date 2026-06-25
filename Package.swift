@@ -228,7 +228,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PDFCryptoTests",
-            dependencies: ["PDFCrypto", "PDFCore", "PDFWriter"],
+            dependencies: ["PDFCrypto", "PDFCore", "PDFWriter", "PDFTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]

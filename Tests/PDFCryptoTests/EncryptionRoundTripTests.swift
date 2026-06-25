@@ -4,9 +4,8 @@
 
 import Testing
 import PDFCore
+import PDFTestSupport
 @testable import PDFCrypto
-
-private func hex(_ bytes: [UInt8]) -> String { bytes.map { String(format: "%02x", $0) }.joined() }
 
 /// Assemble a one-page encrypted PDF: obj 3 carries an encrypted /Marker string; obj 4 is a content
 /// stream with an encrypted body; obj 5 is the /Encrypt dict. /O//U are computed from the passwords.
@@ -31,7 +30,7 @@ private func encryptedPDF(v: Int, r: Int, keyBytes: Int, p: Int32,
         ? " /CF << /StdCF << /CFM /AESV2 /Length 16 >> >> /StmF /StdCF /StrF /StdCF"
         : ""
     let encryptDict = "<< /Filter /Standard /V \(v) /R \(r) /Length \(keyBytes * 8)\(cfEntry) "
-        + "/O <\(hex(o))> /U <\(hex(u))> /P \(p) >>"
+        + "/O <\(Hex.encode(o))> /U <\(Hex.encode(u))> /P \(p) >>"
 
     var data = [UInt8](); func a(_ s: String) { data.append(contentsOf: s.utf8) }
     func pad10(_ n: Int) -> String { let s = String(n); return String(repeating: "0", count: 10 - s.count) + s }
@@ -39,13 +38,13 @@ private func encryptedPDF(v: Int, r: Int, keyBytes: Int, p: Int32,
     a("%PDF-1.7\n")
     off[1] = data.count; a("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
     off[2] = data.count; a("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-    off[3] = data.count; a("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Marker <\(hex(markerCT))> /Contents 4 0 R >>\nendobj\n")
+    off[3] = data.count; a("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Marker <\(Hex.encode(markerCT))> /Contents 4 0 R >>\nendobj\n")
     off[4] = data.count; a("4 0 obj\n<< /Length \(streamCT.count) >>\nstream\n"); data += streamCT; a("\nendstream\nendobj\n")
     off[5] = data.count; a("5 0 obj\n\(encryptDict)\nendobj\n")
     let xref = data.count
     a("xref\n0 6\n0000000000 65535 f \n")
     for i in 1...5 { a(pad10(off[i]) + " 00000 n \n") }
-    a("trailer\n<< /Size 6 /Root 1 0 R /Encrypt 5 0 R /ID [<\(hex(id0))> <\(hex(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
+    a("trailer\n<< /Size 6 /Root 1 0 R /Encrypt 5 0 R /ID [<\(Hex.encode(id0))> <\(Hex.encode(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
     return data
 }
 

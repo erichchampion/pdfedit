@@ -3,6 +3,7 @@
 
 import Testing
 import PDFCore
+import PDFTestSupport
 @testable import PDFCrypto
 
 @Test func permissionsDecodeNamedBits() {
@@ -53,7 +54,6 @@ import PDFCore
     var u = StandardCrypto.computeU(fileKey: fileKey, id0: id0, r: 3)
     u += [UInt8](repeating: 0, count: 32 - u.count)
 
-    func hex(_ b: [UInt8]) -> String { b.map { String(format: "%02x", $0) }.joined() }
     var data = [UInt8](); func a(_ s: String) { data.append(contentsOf: s.utf8) }
     func pad10(_ n: Int) -> String { let s = String(n); return String(repeating: "0", count: 10 - s.count) + s }
     var off = [Int](repeating: 0, count: 6)
@@ -62,11 +62,11 @@ import PDFCore
     off[2] = data.count; a("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
     off[3] = data.count; a("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>\nendobj\n")
     off[4] = data.count; a("4 0 obj\n<< >>\nendobj\n")
-    off[5] = data.count; a("5 0 obj\n<< /Filter /Standard /V 2 /R 3 /Length 128 /O <\(hex(o))> /U <\(hex(u))> /P \(p) >>\nendobj\n")
+    off[5] = data.count; a("5 0 obj\n<< /Filter /Standard /V 2 /R 3 /Length 128 /O <\(Hex.encode(o))> /U <\(Hex.encode(u))> /P \(p) >>\nendobj\n")
     let xref = data.count
     a("xref\n0 6\n0000000000 65535 f \n")
     for i in 1...5 { a(pad10(off[i]) + " 00000 n \n") }
-    a("trailer\n<< /Size 6 /Root 1 0 R /Encrypt 5 0 R /ID [<\(hex(id0))> <\(hex(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
+    a("trailer\n<< /Size 6 /Root 1 0 R /Encrypt 5 0 R /ID [<\(Hex.encode(id0))> <\(Hex.encode(id0))>] >>\nstartxref\n\(xref)\n%%EOF")
 
     let store = try await PDFCrypto.open(data: data, password: "open sesame")
     let perms = await PDFCrypto.permissions(of: store)
