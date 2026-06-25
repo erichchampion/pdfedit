@@ -24,8 +24,8 @@ private func encryptedPDF(v: Int, r: Int, keyBytes: Int, p: Int32,
     let info = EncryptionInfo(v: v, r: r, o: o, u: u, p: p, keyLengthBytes: keyBytes,
                               stringCipher: stringCipher, streamCipher: streamCipher)
     let cipher = StandardCipher(info: info, fileKey: fileKey)
-    let markerCT = cipher.encryptString(Array(marker.utf8), object: PDFRef(3, 0))
-    let streamCT = cipher.encryptStream(Array(streamBody.utf8), object: PDFRef(4, 0))
+    let markerCT = try! cipher.encryptString(Array(marker.utf8), object: PDFRef(3, 0))   // valid fixture input
+    let streamCT = try! cipher.encryptStream(Array(streamBody.utf8), object: PDFRef(4, 0))
 
     let cfEntry = v == 4
         ? " /CF << /StdCF << /CFM /AESV2 /Length 16 >> >> /StmF /StdCF /StrF /StdCF"

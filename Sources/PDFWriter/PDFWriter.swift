@@ -91,10 +91,10 @@ public enum PDFWriter {
         for number in edits.keys.sorted() {
             offsets[number] = out.count
             var value = edits[number]!
-            if let encryption, number != encryption.encryptObject, !ObjectCrypto.isCrossReferenceStream(value) {
-                value = ObjectCrypto.transform(value, ref: PDFRef(number, 0),
-                                               string: encryption.encryptor.encryptString,
-                                               stream: encryption.encryptor.encryptStream)
+            if let encryption {
+                value = try ObjectCrypto.encryptForWrite(value, number: number,
+                                                         encryptor: encryption.encryptor,
+                                                         encryptObject: encryption.encryptObject)
             }
             out.append(contentsOf: "\(number) 0 obj\n".utf8)
             PDFSerializer.serialize(value, into: &out)
@@ -171,11 +171,12 @@ public enum PDFWriter {
             let newNumber = remap[old]!
             var rewritten = rewrite(await store.resolve(PDFRef(old, 0)), remap)
             // Encrypt strings + stream body keyed by the *new* object number (the per-object key must
-            // match the number the file ends up with); never the /Encrypt dict itself or an /XRef stream.
-            if let encryption, newNumber != encryptObjectNew, !ObjectCrypto.isCrossReferenceStream(rewritten) {
-                rewritten = ObjectCrypto.transform(rewritten, ref: PDFRef(newNumber, 0),
-                                                   string: encryption.encryptor.encryptString,
-                                                   stream: encryption.encryptor.encryptStream)
+            // match the number the file ends up with); the skip set (the /Encrypt dict at its new
+            // number, /XRef streams) is centralized in encryptForWrite.
+            if let encryption {
+                rewritten = try ObjectCrypto.encryptForWrite(rewritten, number: newNumber,
+                                                             encryptor: encryption.encryptor,
+                                                             encryptObject: encryptObjectNew ?? -1)
             }
             offsets[newNumber] = out.count
             out.append(contentsOf: "\(newNumber) 0 obj\n".utf8)

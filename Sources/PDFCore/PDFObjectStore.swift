@@ -159,8 +159,15 @@ public actor PDFObjectStore {
             // (§6.2), applied per (number, generation). The /Encrypt dict and /XRef streams are never
             // decrypted; /ObjStm members (the .compressed case) are already plaintext.
             if let decryptor, number != encryptObjectNumber, !ObjectCrypto.isCrossReferenceStream(value) {
-                value = ObjectCrypto.transform(value, ref: PDFRef(number, generation),
-                                               string: decryptor.decryptString, stream: decryptor.decryptStream)
+                // Fail closed: a decryption that cannot succeed (corrupt/tampered ciphertext) drops the
+                // object to .null (§2.4.3) rather than surfacing ciphertext as if it were plaintext.
+                do {
+                    value = try ObjectCrypto.transform(value, ref: PDFRef(number, generation),
+                                                       string: decryptor.decryptString, stream: decryptor.decryptStream)
+                } catch {
+                    cache[number] = .null
+                    return .null
+                }
             }
             cache[number] = value
             return value

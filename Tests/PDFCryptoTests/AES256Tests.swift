@@ -20,8 +20,8 @@ private func aes256PDF(userPassword: String, ownerPassword: String, marker: Stri
     let info = EncryptionInfo(v: 5, r: 6, o: auth.o, u: auth.u, oe: auth.oe, ue: auth.ue, perms: perms,
                               p: p, keyLengthBytes: 32, stringCipher: .aesV3, streamCipher: .aesV3)
     let cipher = StandardCipher(info: info, fileKey: fileKey)
-    let markerCT = cipher.encryptString(Array(marker.utf8), object: PDFRef(3, 0))
-    let bodyCT = cipher.encryptStream(Array(body.utf8), object: PDFRef(4, 0))
+    let markerCT = try! cipher.encryptString(Array(marker.utf8), object: PDFRef(3, 0))   // valid fixture input
+    let bodyCT = try! cipher.encryptStream(Array(body.utf8), object: PDFRef(4, 0))
 
     let encryptDict = "<< /Filter /Standard /V 5 /R 6 /Length 256 "
         + "/CF << /StdCF << /CFM /AESV3 /Length 32 >> >> /StmF /StdCF /StrF /StdCF "
