@@ -9,6 +9,7 @@
 import Foundation
 import PDFCore
 import PDFWriter
+import PDFCrypto
 
 public final class Document: Sendable {
     /// The gated low-level object-model surface (§20.4) — the live, actor-isolated graph. Advanced
@@ -34,6 +35,42 @@ public final class Document: Sendable {
     /// Open from a file URL (§20.3).
     public static func open(url: URL) throws -> Document {
         try open(data: [UInt8](try Data(contentsOf: url)))
+    }
+
+    // MARK: - encryption (§20.3/§20.9; Ch 06)
+
+    /// Open a possibly-encrypted document, decrypting on read with `password` (Ch 06 §6.7). An
+    /// unencrypted document opens normally; an encrypted one needs the correct user or owner password
+    /// (default empty) or throws `needsPassword`. The handler is retained so a later save re-encrypts.
+    public static func open(data: [UInt8], password: String) async throws -> Document {
+        Document(store: try await PDFCrypto.open(data: data, password: password))
+    }
+
+    /// Open an encrypted document from a file URL with a password (§20.3).
+    public static func open(url: URL, password: String) async throws -> Document {
+        try await open(data: [UInt8](try Data(contentsOf: url)), password: password)
+    }
+
+    /// Configure encrypt-on-write (Ch 06 §6.7): the next `save` produces a file protected by the given
+    /// passwords/permissions. An empty owner password defaults to the user password.
+    public func setEncryption(userPassword: String = "", ownerPassword: String = "",
+                              permissions: PDFPermissions = .all,
+                              algorithm: PDFCrypto.Algorithm = .aes128) async {
+        await PDFCrypto.setEncryption(store, userPassword: userPassword, ownerPassword: ownerPassword,
+                                      permissions: permissions, algorithm: algorithm)
+    }
+
+    /// Remove encryption so the next `save(.fullRewrite)` produces a plaintext copy (Ch 06 §6.7).
+    /// Already-loaded content stays readable. The save must be a full rewrite (an incremental save of a
+    /// previously-encrypted document throws).
+    public func removeEncryption() async {
+        await PDFCrypto.removeEncryption(store)
+    }
+
+    /// The advisory permissions declared by an encrypted document (nil if unencrypted, §6.6). Reported,
+    /// never enforced — the caller decides whether to honour them.
+    public var permissions: PDFPermissions? {
+        get async { await PDFCrypto.permissions(of: store) }
     }
 
     // MARK: - pages (§20.5)

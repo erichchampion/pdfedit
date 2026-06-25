@@ -74,6 +74,13 @@ public enum PDFWriter {
             // Nothing to append to — fall back to a full rewrite for a from-scratch store.
             return try await saveFullRewrite(store)
         }
+        // Fail closed (no silent mode substitution, §19.2): if encryption was set/changed after open,
+        // the original prefix is no longer consistent with the new policy, so appending to it would
+        // leave inconsistently-keyed objects under a trailer that declares the new /Encrypt (§6.7).
+        if await store.requiresFullRewriteForEncryption() {
+            throw PDFError.unsupportedFeature(
+                "incremental save cannot apply newly-set or changed encryption to pre-existing content; use a full rewrite")
+        }
         var out = original
         if let last = out.last, last != 0x0A, last != 0x0D { out.append(0x0A) }
 
@@ -83,12 +90,21 @@ public enum PDFWriter {
         let prev = PDFFileStructure.lastStartxrefOffset(original)
         let size = await store.highestObjectNumber() + 1
 
-        // Append changed object bodies, recording their offsets (§19.3.1).
+        // Append changed object bodies, recording their offsets (§19.3.1). When the document is
+        // encrypted, re-encrypt each new/changed object with the same file key (§6.7); the original
+        // /Encrypt and /ID are preserved in the prefix, so prior objects stay decryptable.
+        let encryption = await store.encryptionForWrite()
         var offsets: [Int: Int] = [:]
         for number in edits.keys.sorted() {
             offsets[number] = out.count
+            var value = edits[number]!
+            if let encryption {
+                value = try ObjectCrypto.encryptForWrite(value, number: number,
+                                                         encryptor: encryption.encryptor,
+                                                         encryptObject: encryption.encryptObject)
+            }
             out.append(contentsOf: "\(number) 0 obj\n".utf8)
-            PDFSerializer.serialize(edits[number]!, into: &out)
+            PDFSerializer.serialize(value, into: &out)
             out.append(contentsOf: "\nendobj\n".utf8)
         }
 
@@ -139,6 +155,10 @@ public enum PDFWriter {
         enqueue(rootRef)
         let infoRef = trailer[PDFName("Info")]?.referenceValue
         if let infoRef { enqueue(infoRef) }
+        // The /Encrypt dict is referenced from the trailer, not from /Root — retain it explicitly when
+        // encrypting on write so it survives the mark-from-roots GC (§6.7).
+        let encryption = await store.encryptionForWrite()
+        if let encryption { enqueue(PDFRef(encryption.encryptObject, 0)) }
         while let number = stack.popLast() {
             let object = await store.resolve(PDFRef(number, 0))
             for ref in references(in: object) { enqueue(ref) }
@@ -152,10 +172,19 @@ public enum PDFWriter {
         // Header + binary marker comment (§3.3).
         var out: [UInt8] = Array("%PDF-1.7\n".utf8) + [UInt8(ascii: "%"), 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]
 
+        let encryptObjectNew = encryption.flatMap { remap[$0.encryptObject] }   // its post-renumber number
         var offsets: [Int: Int] = [:] // newNumber -> byte offset
         for old in oldNumbers {
             let newNumber = remap[old]!
-            let rewritten = rewrite(await store.resolve(PDFRef(old, 0)), remap)
+            var rewritten = rewrite(await store.resolve(PDFRef(old, 0)), remap)
+            // Encrypt strings + stream body keyed by the *new* object number (the per-object key must
+            // match the number the file ends up with); the skip set (the /Encrypt dict at its new
+            // number, /XRef streams) is centralized in encryptForWrite.
+            if let encryption {
+                rewritten = try ObjectCrypto.encryptForWrite(rewritten, number: newNumber,
+                                                             encryptor: encryption.encryptor,
+                                                             encryptObject: encryptObjectNew ?? -1)
+            }
             offsets[newNumber] = out.count
             out.append(contentsOf: "\(newNumber) 0 obj\n".utf8)
             PDFSerializer.serialize(rewritten, into: &out)
@@ -178,6 +207,11 @@ public enum PDFWriter {
             newTrailer.set(PDFName("Info"), .reference(PDFRef(mapped, 0)))
         }
         if let id = trailer[PDFName("ID")] { newTrailer.set(PDFName("ID"), rewrite(id, remap)) }
+        // Carry the (renumbered) /Encrypt reference so the saved file is self-describing (§6.7); /ID and
+        // the /Encrypt object stay cleartext (handled above by skipping the encrypt object).
+        if let encryptObjectNew {
+            newTrailer.set(PDFName("Encrypt"), .reference(PDFRef(encryptObjectNew, 0)))
+        }
 
         out.append(contentsOf: "trailer\n".utf8)
         PDFSerializer.serialize(.dictionary(newTrailer), into: &out)

@@ -21,6 +21,15 @@ public actor PDFObjectStore {
     private var objStmCache: [Int: [Int: PDFObject]] = [:]
     private var highestNumber: Int
 
+    // Encryption (spec Ch 06): a decryptor (read) is applied at materialization; an encryptor (write)
+    // is applied at serialization by the writer. Both are nil for unencrypted documents.
+    private var decryptor: PDFObjectDecryptor?
+    private var encryptor: PDFObjectEncryptor?   // applied by the writer at serialization (§6.7)
+    private var encryptObjectNumber: Int?   // the /Encrypt dict object — never en/decrypted (§6.2)
+    private var encryptionRequiresFullRewrite = false   // set when policy changed after open (§6.7)
+    /// True if the document was opened from an encrypted file (whether or not a decryptor is installed).
+    public private(set) var isEncrypted: Bool = false
+
     init(bytes: [UInt8]?, xref: XRefResult, repairReport: RepairReport? = nil) {
         self.sourceBytes = bytes
         self.entries = xref.entries
@@ -55,12 +64,79 @@ public actor PDFObjectStore {
         return PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
     }
 
-    /// Encryption (§6) is detected even though decryption is deferred: an encrypted document is
-    /// reported as `needsPassword` (§20.3/§20.11) rather than surfacing later as a confusing
-    /// stream-decode failure. The trailer is plaintext, so `/Encrypt` is readable at open time.
+    /// Encryption (§6): callers without crypto support get `needsPassword` rather than a confusing
+    /// later decode failure. The security handler instead uses `openAllowingEncrypted` and installs a
+    /// decryptor once a password authenticates. The trailer is plaintext, so `/Encrypt` is readable.
     private static func requireUnencrypted(_ trailer: PDFDictionary) throws {
         if trailer[PDFName("Encrypt")] != nil { throw PDFError.needsPassword }
     }
+
+    /// Open without throwing on `/Encrypt` (SPI for the security handler, spec Ch 06). The returned
+    /// store is flagged `isEncrypted`; its content stays ciphertext until `installDecryptor` is called,
+    /// so the handler MUST read only the (plaintext) `/Encrypt` dict + `/ID` before installing.
+    public static func openAllowingEncrypted(_ bytes: [UInt8]) throws -> PDFObjectStore {
+        let store: PDFObjectStore
+        if let xref = try? CrossReferenceReader(bytes).load(), xref.trailer[PDFName("Root")] != nil {
+            store = PDFObjectStore(bytes: bytes, xref: xref)
+        } else {
+            guard let (rebuilt, report) = RecoveryEngine.rebuild(bytes) else {
+                throw PDFError.malformed("unrecoverable: no recoverable objects or document root")
+            }
+            store = PDFObjectStore(bytes: bytes, xref: rebuilt, repairReport: report)
+        }
+        return store
+    }
+
+    /// Mark the document encrypted and remember the `/Encrypt` dict object number (never decrypted).
+    public func markEncrypted(encryptObject: Int?) {
+        isEncrypted = true
+        encryptObjectNumber = encryptObject
+    }
+
+    /// Install the decryptor that materialization applies per object (spec §6.2/§6.7). Clears any
+    /// already-cached on-disk objects so they re-materialize decrypted.
+    public func installDecryptor(_ decryptor: PDFObjectDecryptor) {
+        self.decryptor = decryptor
+        cache.removeAll()
+        objStmCache.removeAll()
+    }
+
+    /// Install the encryptor the writer applies per object at serialization (encrypt-on-write, §6.7),
+    /// recording the `/Encrypt` dict object (never itself encrypted). Marks the document encrypted.
+    /// `requiresFullRewrite` is true when the encryption policy was newly set or changed after open, so
+    /// the original byte prefix is now stale and an incremental save would corrupt it (§6.7); it is
+    /// false when `open` installs the handler that already matches the on-disk bytes.
+    public func installEncryptor(_ encryptor: PDFObjectEncryptor, encryptObject: Int,
+                                 requiresFullRewrite: Bool = false) {
+        self.encryptor = encryptor
+        self.encryptObjectNumber = encryptObject
+        isEncrypted = true
+        if requiresFullRewrite { encryptionRequiresFullRewrite = true }
+    }
+
+    /// The encryptor + `/Encrypt` object number for the writer, or nil when not encrypting on write.
+    /// Gated on the trailer still declaring `/Encrypt`: removing `/Encrypt` disables write-encryption
+    /// (so a caller can save a decrypted copy) rather than leaving ciphertext bodies under no handler.
+    public func encryptionForWrite() -> (encryptor: PDFObjectEncryptor, encryptObject: Int)? {
+        guard let encryptor, let encryptObjectNumber, trailer[PDFName("Encrypt")] != nil else { return nil }
+        return (encryptor, encryptObjectNumber)
+    }
+
+    /// Tear down encrypt-on-write (the inverse of `installEncryptor`): drop the encryptor, delete the
+    /// `/Encrypt` object, and clear the trailer `/Encrypt` so the next (full-rewrite) save emits a
+    /// plaintext document. The decryptor stays installed so existing content still reads. Requires a
+    /// full rewrite because the on-disk prefix is still ciphertext (§6.7).
+    public func removeEncryptor() {
+        if let number = encryptObjectNumber { delete(PDFRef(number, 0)) }
+        trailer.set(PDFName("Encrypt"), .null)
+        encryptor = nil
+        encryptObjectNumber = nil
+        encryptionRequiresFullRewrite = true
+    }
+
+    /// Whether the encryption policy was set/changed after open so the original prefix is stale and a
+    /// save MUST be a full rewrite (an incremental save would leave inconsistently-keyed prefix bytes).
+    public func requiresFullRewriteForEncryption() -> Bool { encryptionRequiresFullRewrite }
 
     // MARK: - resolution (§2.4.3, §4.3)
 
@@ -101,8 +177,22 @@ public actor PDFObjectStore {
         switch entry {
         case .free:
             return .null
-        case let .uncompressed(offset, _):
-            guard let value = parseAt(offset, bytes: bytes) else { return .null }
+        case let .uncompressed(offset, generation):
+            guard var value = parseAt(offset, bytes: bytes) else { return .null }
+            // Decryption is the outermost transform of an on-disk object's strings + stream body
+            // (§6.2), applied per (number, generation). The /Encrypt dict and /XRef streams are never
+            // decrypted; /ObjStm members (the .compressed case) are already plaintext.
+            if let decryptor, number != encryptObjectNumber, !ObjectCrypto.isCrossReferenceStream(value) {
+                // Fail closed: a decryption that cannot succeed (corrupt/tampered ciphertext) drops the
+                // object to .null (§2.4.3) rather than surfacing ciphertext as if it were plaintext.
+                do {
+                    value = try ObjectCrypto.transform(value, ref: PDFRef(number, generation),
+                                                       string: decryptor.decryptString, stream: decryptor.decryptStream)
+                } catch {
+                    cache[number] = .null
+                    return .null
+                }
+            }
             cache[number] = value
             return value
         case let .compressed(streamObject, _):

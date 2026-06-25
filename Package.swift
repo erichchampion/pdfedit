@@ -34,11 +34,16 @@ let package = Package(
         .library(name: "PDFRedaction", targets: ["PDFRedaction"]),
         .library(name: "PDFKitBridge", targets: ["PDFKitBridge"]),
         .library(name: "PDFEdit", targets: ["PDFEdit"]),
+        .library(name: "PDFCrypto", targets: ["PDFCrypto"]),
     ],
     targets: [
         // System zlib shim for FlateDecode (spec Ch 05 §5.6, §5.13; RFC 1950/1951).
         // Links the OS-provided libz; no vendored zlib source.
         .systemLibrary(name: "CZlib", path: "Sources/CZlib"),
+
+        // System CommonCrypto shim for the standard security handler's primitives (spec Ch 06 §6.8:
+        // AES-CBC/RC4/MD5/SHA-2). No vendored crypto.
+        .systemLibrary(name: "CCommonCrypto", path: "Sources/CCommonCrypto"),
 
         // Shared test fixtures (not a shipped product).
         .target(
@@ -120,11 +125,19 @@ let package = Package(
             dependencies: ["PDFCore", "PDFWriter", "PDFImages", "PDFRender"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
+        // The standard security handler (spec Ch 06): decrypt-on-read + encrypt-on-write. Uses
+        // CommonCrypto for the named primitives; PDFCore stays Apple-free (it only defines the
+        // decryptor/encryptor protocols).
+        .target(
+            name: "PDFCrypto",
+            dependencies: ["PDFCore", "CCommonCrypto"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         // The public umbrella API (spec Ch 20): Document/Page facades over all modules. Apple-free
         // (does NOT depend on PDFKitBridge, §20.13).
         .target(
             name: "PDFEdit",
-            dependencies: ["PDFCore", "PDFWriter", "PDFPages", "PDFAnnotations", "PDFForms",
+            dependencies: ["PDFCore", "PDFWriter", "PDFCrypto", "PDFPages", "PDFAnnotations", "PDFForms",
                            "PDFRedaction", "PDFText", "PDFContent", "PDFRender", "PDFColor",
                            "PDFFonts", "PDFImages", "PDFFilters"],
             swiftSettings: [.swiftLanguageMode(.v6)]
@@ -137,7 +150,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PDFCoreTests",
-            dependencies: ["PDFCore", "PDFFilters"],
+            dependencies: ["PDFCore", "PDFFilters", "PDFWriter"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
@@ -211,6 +224,11 @@ let package = Package(
         .testTarget(
             name: "PDFEditTests",
             dependencies: ["PDFEdit"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "PDFCryptoTests",
+            dependencies: ["PDFCrypto", "PDFCore", "PDFWriter", "PDFTestSupport"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
     ]
